@@ -321,6 +321,16 @@ export function rotuloDeMarca(
 }
 
 /**
+ * Con qué fecha queda una visita al INICIAR la atención desde el modal: la fecha realizada si ya tiene
+ * (no se pisa: es un dato clínico, y la base igual la conserva, 0102); si no, el día en que LLEGÓ; si no,
+ * hoy. Antes era «la de hoy» siempre, y una visita que llegó el 8 e inició el 14 quedaba fechada el 14
+ * con su llegada del 8: salía en los dos días (2026-10-14, plan `docs/plan-visita-cargada-otro-dia.md`).
+ */
+export function fechaParaIniciar(visit: Pick<DayVisitRow, 'real_date' | 'arrived_at'>, hoy: string): string {
+  return visit.real_date ?? (visit.arrived_at ? isoDayAR(visit.arrived_at) : hoy)
+}
+
+/**
  * ¿«Atención médica» se puede pedir HOY para esta visita? `null` = sí; si no, por qué. Una visita en
  * atención de OTRO día —cargada con «Vino otro día» (0158), o abierta desde la ficha— dejaba pedir el
  * médico, y el pedido caía en la cola del día de la visita, que nadie mira. El día de la visita es su

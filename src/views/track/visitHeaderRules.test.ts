@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   contextoDeEtapa, datosDelPaciente, diaDeLaVisita, estaConcretada, estimadaNoAplica, etapaProgreso, fechaSegunProtocolo,
-  desvioSegunProtocolo, marcaDeEtapa, opcionesDeCoordinador, rotuloDeMarca, atencionMedicaDeOtroDia,
+  desvioSegunProtocolo, marcaDeEtapa, opcionesDeCoordinador, rotuloDeMarca, atencionMedicaDeOtroDia, fechaParaIniciar,
   medicoDeVisita, puedeEditarCoordinador, muestraFechaReal, puedeEditarMedico,
 } from './visitHeaderRules'
 import { desvioDias, fueraDeVentana } from '../../lib/visits'
@@ -388,6 +388,21 @@ describe('rotuloDeMarca', () => {
   it('la llegada (sin fecha realizada todavía) nunca es tardía', () => {
     const llegada = '2026-10-14T12:51:00Z'
     expect(rotuloDeMarca({ ...base, real_date: null, operational_stage: 'concurrio_al_centro', arrived_at: llegada })).toBe(formatTimeAR(llegada))
+  })
+})
+
+describe('fechaParaIniciar', () => {
+  const HOY = '2026-10-14'
+  it('la fecha realizada que ya tiene no se pisa', () => {
+    expect(fechaParaIniciar({ real_date: '2026-10-08', arrived_at: '2026-10-09T12:00:00Z' }, HOY)).toBe('2026-10-08')
+  })
+  it('sin fecha, la del día en que LLEGÓ (no la de hoy: salía en los dos días)', () => {
+    expect(fechaParaIniciar({ real_date: null, arrived_at: '2026-10-08T12:51:00Z' }, HOY)).toBe('2026-10-08')
+    // El día es el argentino: las 23:30 del 8 en AR son el 9 en UTC.
+    expect(fechaParaIniciar({ real_date: null, arrived_at: '2026-10-09T02:30:00Z' }, HOY)).toBe('2026-10-08')
+  })
+  it('sin fecha ni llegada, hoy', () => {
+    expect(fechaParaIniciar({ real_date: null, arrived_at: null }, HOY)).toBe(HOY)
   })
 })
 

@@ -1,8 +1,9 @@
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { formatAR } from '../../lib/dates'
+import { formatAR, todayISO } from '../../lib/dates'
 import type { DayVisitRow } from '../../data/dayVisits'
 import { NEXT_STEP } from './advanceStep'
+import { fechaParaIniciar } from './visitHeaderRules'
 
 /**
  * Confirmación antes de cambiar la etapa de una visita que NO es de hoy.
@@ -46,6 +47,13 @@ export function ConfirmarAvance({ visit, busy, onCancel, onConfirmar }: {
         <p style={parrafo}>
           Esta visita tiene <strong>fecha real del {formatAR(visit.real_date)}</strong>, no la de hoy.
           Avanzar cambia su estado; la fecha real queda como está.
+        </p>
+      ) : visit.operational_stage === 'concurrio_al_centro' ? (
+        // Lo que va a hacer este clic: iniciar la atención fecha la visita. Se dice con QUÉ fecha —la
+        // del día en que llegó (`fechaParaIniciar`, 2026-10-14)—, porque es un dato clínico firmado.
+        <p style={parrafo}>
+          Esta visita <strong>todavía no tiene fecha real</strong>. Al iniciar la atención queda con la
+          del día en que llegó: <strong>{formatAR(fechaParaIniciar(visit, todayISO()))}</strong>.
         </p>
       ) : (
         <p style={parrafo}>
