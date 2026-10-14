@@ -85,6 +85,11 @@ const ICONS = {
   /* El reloj que vuelve atrás: el chip «Historial» de la tarjeta de Dispensación (handoff
      `design_handoff_dispensacion_estado`). Es `rotateCcw` con las agujas adentro. */
   history: (<><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M12 7v5l4 2" /></>),
+  /* El menú del botón de etapa (handoff `design_handoff_boton_etapa`): «Volver a …» es la flecha curva
+     hacia atrás de deshacer (Lucide `undo-2`), y «Pedir retest» la flecha circular que REPITE
+     (`rotate-cw`) — `rotateCcw` ya dice «volver al estado anterior» en el resto de la app. */
+  undo: (<><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></>),
+  rotateCw: (<><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /></>),
   /* Los controles de los tutoriales (docs/plan-tutoriales.md). El triángulo y las barras se dibujan LLENOS
      (`fill`) en el disco de play y en los controles chicos, como en el mock: de trazo no se leen a 12px. */
   play: (<polygon points="6 3 20 12 6 21 6 3" />),

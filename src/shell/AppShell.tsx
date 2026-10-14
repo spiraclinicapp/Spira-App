@@ -2,6 +2,7 @@ import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../components/Icon'
 import { Vilano } from '../components/Vilano'
+import { AvisoGlobal } from '../components/AvisoGlobal'
 import { readLastModule, usePrefs, writeLastModule } from '../lib/prefs'
 import { moduloHabilitado, resolveHome, submoduloVisible } from '../lib/home'
 import { useAuth } from '../lib/auth'
@@ -767,6 +768,9 @@ export function AppShell() {
       {/* Los avisos de movimiento de un pedido ya no viven acá: desde el handoff v2 salen de la
           campana (`AlertaCampana`, adentro de `NotificationsMenu`), que también está montada estés
           donde estés. */}
+
+      {/* El «listo» al pie que sobrevive a la pantalla que lo pidió (`avisar`, botón de etapa). */}
+      <AvisoGlobal />
     </div>
     </AyudaContextProvider>
   )

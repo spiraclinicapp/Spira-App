@@ -22,6 +22,7 @@ import { VisitActionBar } from './VisitActionBar'
 import { DoctorRequestModal } from './DoctorRequestModal'
 import { modalesAbiertos } from '../../components/Modal'
 import { useAvisoAlFinalizar } from './useAvisoAlFinalizar'
+import { useAccionesDeVisita } from './useAccionesDeVisita'
 
 /**
  * Detalle de una visita (rediseño del encabezado, handoff `docs/handoff-visitas-encabezado/`). El
@@ -50,11 +51,12 @@ import { useAvisoAlFinalizar } from './useAvisoAlFinalizar'
  *
  * Dos diferencias deliberadas contra el mock, las dos decididas en la `/plan-eng-review` del
  * 2026-08-13 y explicadas en el PLAN de esa carpeta: **Comentarios se conserva** (el mock no lo
- * dibuja, pero está en producción desde la 0048) y **el anexo de retroceder/historial no está**
- * (no tiene backend; anotado en `TODOS.md`).
+ * dibuja, pero está en producción desde la 0048) y **el anexo de retroceder/historial no estaba**
+ * (no tenía backend). Retroceder llegó el 2026-10-14 con el botón de etapa dividido (0155,
+ * `docs/plan-boton-etapa-dividido.md`); el historial sigue en `TODOS.md`.
  */
 export function VisitDetail({
-  visitId, accent, onClose, canReception, canClinical,
+  visitId, accent, onClose, canReception, canClinical, coordina,
   onAdvance, onChanged, pos, onPrev, onNext, seed, onOpenPatient, onVerEnElDia, visitaDebajo,
 }: {
   visitId: string
@@ -68,6 +70,8 @@ export function VisitDetail({
    */
   canReception?: boolean
   canClinical?: boolean
+  /** Coordina el estudio de la visita (sin el atajo de admin). Lo pasa quien ya calculó los permisos. */
+  coordina?: boolean
   onAdvance?: (visit: DayVisitRow, next: OperationalStage) => void | Promise<void>
   onChanged?: () => void
   /** Posición dentro de la lista visible ("3 / 14"), para la fila de utilidades. Solo en `day`. */
@@ -154,6 +158,7 @@ export function VisitDetail({
 
   const role = visit ? advanceRole(visit.operational_stage) : null
   const puedeClinica = canClinical ?? (visit ? perms.canClinical(visit) : false)
+  const puedeCoordinar = coordina ?? (visit ? perms.coordina(visit) : false)
   const canAdvance = role === 'reception' ? puedeOperar : role === 'clinical' ? puedeClinica : false
 
   /* CERRAR REFRESCA A LA PANTALLA DE ATRÁS. `onChanged` se llama en vivo desde las acciones que
@@ -196,6 +201,16 @@ export function VisitDetail({
 
   const refrescar = () => { onChanged?.(); q.refetch() }
 
+  /* El menú del botón de etapa: el MISMO hook que usa la fila de Visitas. Lo que cambia se refresca
+     acá y en la pantalla de atrás (`refrescar`), y los paneles de procedimientos también (un retest o
+     una vuelta atrás pueden cambiar lo que muestran). Eliminar cierra el modal: la visita ya no existe. */
+  const acciones = useAccionesDeVisita({
+    acento: accent,
+    onCambio: () => { setVersionProcedimientos((v) => v + 1); refrescar() },
+    onError: setErr,
+    onEliminada: () => { onChanged?.(); onClose() },
+  })
+
   /**
    * Pedir el avance. Si la visita NO es de hoy, primero confirma: desde la ficha o las alertas es
    * fácil tener abierta una de hace dos meses y avanzarla creyendo que es la del día, y el cambio
@@ -203,7 +218,10 @@ export function VisitDetail({
    */
   const advance = (next: OperationalStage) => {
     if (!visit) return
-    if (necesitaConfirmacion(visit.real_date, todayISO())) { setConfirmando(next); return }
+    /* La LLEGADA no pasa por acá con confirmación: si la visita no está citada para hoy, el botón de
+       etapa ya la confirmó en su lugar (`llegadaFueraDeFecha`) y la registra él; si llega acá es la de
+       hoy, que avanza directo (handoff §3). Iniciar y Finalizar siguen con `ConfirmarAvance`. */
+    if (next !== 'concurrio_al_centro' && necesitaConfirmacion(visit.real_date, todayISO())) { setConfirmando(next); return }
     ejecutar(next)
   }
 
@@ -317,9 +335,12 @@ export function VisitDetail({
               visit={visit}
               readOnly={readOnly}
               canAdvance={canAdvance}
-              busy={busy}
+              busy={busy || acciones.ocupado === visit.id}
               accent={accent}
+              permisos={{ recepcion: puedeOperar, clinica: puedeClinica, coordina: puedeCoordinar }}
               onAdvance={advance}
+              onAccion={(clave) => void acciones.ejecutar(visit, clave)}
+              onLlegar={(mueveFecha) => void acciones.llegar(visit, mueveFecha)}
               onSolicitarMedico={() => { setErr(null); setDoctorOpen(true) }}
             />
 
@@ -410,6 +431,9 @@ export function VisitDetail({
     )}
 
     {aviso.modal}
+
+    {/* «Reprogramar» y «Pedir retest» del menú del botón de etapa: fuera del backdrop, como los demás. */}
+    {acciones.capas}
 
     {outcomeFor && (outcomeFor.role === 'screening' || outcomeFor.role === 'randomizacion') && (
       <ReadyOutcomeModal

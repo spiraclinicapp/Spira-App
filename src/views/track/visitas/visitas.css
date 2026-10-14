@@ -171,13 +171,14 @@
 .vcal-ficha-x:hover { background: rgba(46, 125, 116, .14); }
 
 /* —— Vista Día: la fila de visita ——
-   Grid de cinco columnas con anchos DETERMINÍSTICOS (estado · datos · personas · acciones · ⋯): las
+   Grid de cuatro columnas con anchos DETERMINÍSTICOS (estado · datos · personas · acciones; el ⋯ del
+   final se fue con el botón de etapa dividido, 2026-10-14): las
    columnas coinciden entre filas por construcción. La tarjeta es `.spira-card-link` (levante +
    sombra al apuntarla, la regla de la casa); el borde gris un punto más oscuro es lo único que agrega
    el handoff, y es neutro. */
 .vcal-lista { container-type: inline-size; display: flex; flex-direction: column; gap: 14px; }
 .vcal-row {
-  display: grid; grid-template-columns: 112px minmax(240px, 1fr) minmax(0, 210px) auto 34px;
+  display: grid; grid-template-columns: 112px minmax(240px, 1fr) minmax(0, 210px) auto;
   align-items: center; gap: 14px; padding: 14px 16px; margin-bottom: 8px;
   background: var(--spira-white); border-radius: 14px;
 }
@@ -187,29 +188,26 @@
   justify-self: end; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 8px; row-gap: 4px;
   font-size: 12.5px; min-width: 0; max-width: 100%;
 }
-.vcal-row-cta { display: flex; align-items: center; gap: 8px; justify-content: flex-end; }
-.vcal-row-more { justify-self: end; }
+.vcal-row-cta { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
 /* Dos renglones (handoff: ≤860). Sube a 980 por el QA con datos reales: con nombres de verdad
    («Dra. Daiana Florencia Anci») la columna de personas quedaba en ~90 px a 900 y se leía «Dra. …». */
 @container (max-width: 980px) {
-  .vcal-row { grid-template-columns: 112px minmax(0, 1fr) auto 34px; row-gap: 12px; }
+  .vcal-row { grid-template-columns: 112px minmax(0, 1fr) auto; row-gap: 12px; }
   .vcal-row-main { grid-column: 2 / 4; grid-row: 1; }
   .vcal-row-people { grid-column: 2; grid-row: 2; justify-self: start; }
   .vcal-row-cta { grid-column: 3; grid-row: 2; }
-  .vcal-row-more { grid-column: 4; grid-row: 1; }
 }
 /* Corte INTERMEDIO que el handoff no tenía (QA con datos reales, 2026-10-12): entre ~820 y ~560 px,
-   las acciones (336 px fijos) dejaban a las personas en ~115 px y se leía «Sin a…», «Dra. …». Acá las
+   las acciones (336 px fijos entonces; 394 con el botón de etapa dividido) dejaban a las personas en ~115 px y se leía «Sin a…», «Dra. …». Acá las
    acciones bajan a su propio renglón y las personas se quedan con el ancho de la columna de datos. */
 @container (max-width: 820px) {
   .vcal-row-people { grid-column: 2 / 4; grid-row: 2; }
   .vcal-row-cta { grid-column: 2 / 4; grid-row: 3; justify-self: start; }
 }
 @container (max-width: 560px) {
-  .vcal-row { grid-template-columns: minmax(0, 1fr) 34px; }
+  .vcal-row { grid-template-columns: minmax(0, 1fr); }
   .vcal-row > * { grid-column: 1; grid-row: auto; }
   .vcal-row > .vcal-row-main, .vcal-row > .vcal-row-people, .vcal-row > .vcal-row-cta { grid-column: 1; grid-row: auto; }
-  .vcal-row > .vcal-row-more { grid-column: 2; grid-row: 1; }
   .vcal-row-people, .vcal-row-cta { justify-self: start; }
   .vcal-row-cta { flex-wrap: wrap; justify-content: flex-start; }
 }
@@ -242,7 +240,13 @@
   transition: box-shadow .15s, transform .12s ease;
 }
 .vcal-btn-cta.secundario:hover:not(:disabled) { background: var(--spira-white); box-shadow: var(--spira-shadow-hover); }
-.vcal-slot { width: 160px; flex-shrink: 0; }
+/* El botón de etapa de la fila (`BotonEtapa`, handoff design_handoff_boton_etapa): ancho FIJO, para que
+   «Atención médica» quede en la misma x en todas las filas —la regla de la fila—, tenga cara principal
+   o sea sólo «Acciones» (que se arrima a la derecha del mismo hueco). Medido con la etiqueta más larga,
+   «Iniciar atención» en Schibsted 14,5/700. */
+.spira-split--fila { width: 216px; }
+.spira-split--fila .spira-split-main { flex: 1; min-width: 0; }
+.spira-split--fila.spira-split--acciones { justify-content: flex-end; }
 
 /* —— Vista Semana —— */
 .vcal-semana {
