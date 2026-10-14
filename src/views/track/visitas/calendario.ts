@@ -10,6 +10,7 @@
    `getUTC*` el resultado es el mismo en cualquier zona.
    └─────────────────────────────────────────────────────────────────────────────────────────────┘ */
 import { isoDayAR } from '../../../lib/dates'
+import { marcaTardia } from '../../../lib/visits'
 import type { FechasVisita, OperationalStage } from '../../../data/dayVisits'
 import type { VisitStatus } from '../../../data/visits'
 
@@ -185,14 +186,20 @@ export type FechasDeVisita = Omit<FechasVisita, 'id'>
  *   · la citación (`estimated_date`) sólo manda mientras la visita no se atendió y ninguna marca cayó
  *     DESPUÉS del día citado (llegó el 10 a una cita del 8: la cita está cumplida);
  *   · la fecha realizada (`real_date`), siempre;
- *   · las marcas operativas, en el día LOCAL en que pasaron (offset fijo −03:00, `isoDayAR`).
+ *   · las marcas operativas, en el día LOCAL en que pasaron (offset fijo −03:00, `isoDayAR`), salvo
+ *     las TARDÍAS (`marcaTardia`): una marca posterior a la fecha realizada dice cuándo se cargó la
+ *     visita, no cuándo vino el paciente (la del 8 cargada el 14 salía también el 14; 2026-10-14).
  *
- * Casi siempre es un solo día; puede ser más si una marca cayó en otro (llegó a las 23:50 y se
- * cerró pasada la medianoche), y entonces aparece en los dos, igual que en la lista del día.
+ * Casi siempre es un solo día; puede ser más si una marca cayó ANTES de la fecha realizada (llegó a
+ * las 23:50 y se inició la atención pasada la medianoche), y entonces aparece en los dos, igual que en
+ * la lista del día. Una visita que cruza la medianoche al revés (inicio el 10, fin el 11) queda sólo
+ * en el 10: el fin es posterior a su fecha.
  */
 export function diasDeLaVisita(v: FechasDeVisita): string[] {
   const dias = new Set<string>()
-  const diasDeMarcas = [v.arrived_at, v.ready_at, v.left_at].filter((m): m is string => !!m).map(isoDayAR)
+  const diasDeMarcas = [v.arrived_at, v.ready_at, v.left_at]
+    .filter((m): m is string => !!m && !marcaTardia(m, v.real_date))
+    .map(isoDayAR)
   const citacion = v.estimated_date
   if (v.real_date === null && citacion && diasDeMarcas.every((d) => d <= citacion)) dias.add(citacion)
   if (v.real_date) dias.add(v.real_date)
