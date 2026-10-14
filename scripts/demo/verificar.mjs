@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // `npm run demo:verificar` — revisa el ambiente DEMO sin escribir nada y sin mostrar ningún valor: que
 // %USERPROFILE%\.spira\demo.env esté completo, que pase la guardia (cerrojo 1) y que las dos claves respondan
 // contra el proyecto demo. Es lo primero que conviene correr si algo del demo "no anda", y lo que se le pide al

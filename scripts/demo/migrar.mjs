@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // `npm run demo:migrar` — aplica al proyecto DEMO las migraciones que le falten, en orden, desde
 // supabase/migrations/ (la misma fuente de verdad que prod). Plan: docs/plan-tutoriales.md, «El ambiente demo».
 //
