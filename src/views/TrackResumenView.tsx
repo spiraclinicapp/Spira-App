@@ -9,6 +9,7 @@ import { GRAVEDAD, ordenarPorGravedad, severidadMaxima } from './alertSeverity'
 import { DESTINO_PENDIENTES, DESTINO_REPORTES, DESTINO_TAREAS, KPI_DESTINOS, nombreDeDestino } from './resumen/destinos'
 import type { KpiKey } from './resumen/destinos'
 import { proximoDiaConVisitas, tiraDeLosProximos, visitasQueVienen } from './resumen/proximoDia'
+import { avanceDelDia } from './resumen/avanceDelDia'
 import type { DiaDeLaTira } from './resumen/proximoDia'
 import { personaActiva } from '../lib/inscripcion'
 import { AMBITOS, esMiaSinAtender, esDeMisProtocolos, esReporteMio, esTareaMia, filtrarPorAmbito, hayAvisoDeAmbito, loAtendiYo, loPediYo } from './resumen/ambito'
@@ -165,11 +166,15 @@ function KpiCard({ label, value, unidad, detalle, visual, leyenda, dot, cargando
  * pasa `total` 0: si no, la barra de pacientes —que suele llegar primero— se dibujaba llena al lado
  * de un guión.
  *
- * El último tramo llena el resto (`flex: 1`) en vez de llevar su porcentaje: con el `gap`, dos
- * porcentajes que suman 100 desbordan la pista por 2px.
+ * Cuando los tramos COMPLETAN el total (Atrasados: vencidas + el resto), el último llena lo que queda
+ * (`flex: 1`) en vez de llevar su porcentaje: con el `gap`, dos porcentajes que suman 100 desbordan la
+ * pista por 2px. Cuando no lo completan (Visitas de hoy: realizadas + en el centro, y el resto es lo
+ * que falta), cada uno lleva su porcentaje y la pista vacía queda a la vista — con `flex: 1` el
+ * segundo tramo se estiraba hasta el final y la barra decía «día terminado».
  */
 function BarraKpi({ tramos, total }: { tramos: { valor: number; color: string }[]; total: number }) {
   const visibles = total > 0 ? tramos.filter((t) => t.valor > 0) : []
+  const completa = visibles.reduce((s, t) => s + t.valor, 0) >= total
   return (
     <div className="spira-kpi__barra" aria-hidden="true">
       {visibles.map((t, i) => (
@@ -178,7 +183,7 @@ function BarraKpi({ tramos, total }: { tramos: { valor: number; color: string }[
           className="spira-kpi__tramo"
           style={{
             background: t.color,
-            ...(i === visibles.length - 1 && visibles.length > 1
+            ...(completa && i === visibles.length - 1 && visibles.length > 1
               ? { flex: 1 }
               : { width: `${Math.min(100, (t.valor / total) * 100)}%` }),
           }}
@@ -915,8 +920,8 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      pacientes, a un clic).
 
      «Visitas de hoy» cuenta lo mismo que la pantalla Visitas abierta en hoy, y su barra dice en qué
-     anda la jornada: cuántas se terminaron de atender. Las etapas salen de `operational_stage`
-     (0068), derivada de las marcas: no se infiere nada que no esté registrado.
+     anda la jornada: cuántas se terminaron de atender y cuántas están en el centro. Las etapas salen
+     de `operational_stage` (0068), derivada de las marcas: no se infiere nada que no esté registrado.
 
      «Próximas visitas» cuenta LOS SIETE DÍAS QUE VIENEN (de mañana a siete días), desde el
      2026-10-13 por decisión del Director; entre el 2026-10-09 y esa fecha contó sólo el próximo día.
@@ -925,15 +930,18 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
      en la semana del próximo día con visitas: ninguna pantalla junta siete días corridos —la Semana
      va de lunes a domingo—, así que el destino muestra la primera parte y el resto está a un «›».
      └──────────────────────────────────────────────────────────────────────────────────────────────┘ */
-  /* REALIZADAS = atención terminada (`fin_atencion`). PENDIENTES = las que faltan atender, SIN las que
-     se marcaron «no vino»: una ausencia registrada no está pendiente de nada en el día —la levanta
-     Pendientes como «por reprogramar»—. Por eso realizadas + pendientes puede dar menos que el total,
-     y está bien: la barra es realizadas sobre el total del día, que es lo que se avanzó. El handoff
-     dejaba este texto por confirmar; va el par que proponía. */
-  const realizadasHoy = hoyRows.filter((v) => v.operational_stage === 'fin_atencion').length
-  const pendientesHoy = hoyRows.filter((v) => v.operational_stage !== 'fin_atencion' && !v.no_show_at).length
+  /* LA JORNADA EN TRES (Director, 2026-10-13: volvió el «en el centro» que la primera versión del
+     handoff había reemplazado por realizadas/pendientes). El reparto lo hace `avanceDelDia`, con test.
+
+     La barra va en dos tramos —realizadas en verde lleno, en el centro en verde claro— y lo que queda
+     de pista es lo que falta (por llegar, y las «no vino», que no avanzan). La leyenda tiene lugar para
+     dos textos a 220 px de tarjeta, así que a la izquierda va LO VIVO: «N en el centro» si hay alguien
+     adentro, si no «N realizadas»; a la derecha, «N por llegar» mientras haya. El `aria-label` lleva
+     los tres. */
+  const { realizadas: realizadasHoy, enCentro, porLlegar } = avanceDelDia(hoyRows)
   const leyendaRealizadas = `${realizadasHoy} ${realizadasHoy === 1 ? 'realizada' : 'realizadas'}`
-  const leyendaPendientes = `${pendientesHoy} ${pendientesHoy === 1 ? 'pendiente' : 'pendientes'}`
+  const leyendaEnCentro = `${enCentro} en el centro`
+  const leyendaPorLlegar = `${porLlegar} por llegar`
   const unidadProximas = asignadasAMi > 0
     ? `en ${HORIZONTE_PROXIMAS} días · ${asignadasAMi} a mí`
     : `en ${HORIZONTE_PROXIMAS} días`
@@ -963,9 +971,16 @@ export function TrackResumenView({ module, submodule, onNavigate, setHeader }: V
           <KpiCard
             kpi="hoy" onNavigate={onNavigate} label="Visitas de hoy" dot="var(--spira-good)" cargando={cargandoKpis}
             value={hoyRows.length}
-            detalle={hoyRows.length > 0 ? `${leyendaRealizadas}, ${leyendaPendientes}` : 'sin visitas hoy'}
-            visual={<BarraKpi total={cargandoKpis ? 0 : hoyRows.length} tramos={[{ valor: realizadasHoy, color: 'var(--spira-good)' }]} />}
-            leyenda={hoyRows.length > 0 ? [leyendaRealizadas, leyendaPendientes] : ['sin visitas hoy']}
+            detalle={hoyRows.length > 0 ? `${leyendaRealizadas}, ${leyendaEnCentro}, ${leyendaPorLlegar}` : 'sin visitas hoy'}
+            visual={(
+              <BarraKpi total={cargandoKpis ? 0 : hoyRows.length} tramos={[
+                { valor: realizadasHoy, color: 'var(--spira-good)' },
+                { valor: enCentro, color: 'var(--spira-kpi-en-curso)' },
+              ]} />
+            )}
+            leyenda={hoyRows.length > 0
+              ? [enCentro > 0 ? leyendaEnCentro : leyendaRealizadas, porLlegar > 0 ? leyendaPorLlegar : undefined]
+              : ['sin visitas hoy']}
           />
           <KpiCard
             kpi="atrasados" onNavigate={onNavigate} target={{ estadoFilter: [...GRAVEDAD] }} label="Atrasados" cargando={cargandoKpis}
