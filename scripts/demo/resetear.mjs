@@ -1,6 +1,6 @@
 // `npm run demo:resetear` — vuelve el proyecto DEMO a cero: vacía `public`, borra las cuentas y los archivos, y
 // vuelve a aplicar las migraciones. Cada grabación arranca de los mismos datos (docs/plan-tutoriales.md, «Reset»).
-// La semilla narrativa se suma acá en T2b.
+// Al final, la semilla narrativa (semilla.mjs) y las sesiones sin contraseña de sus cuentas (sesion.mjs).
 //
 // ── POR QUÉ OBJETO POR OBJETO Y NO `drop schema public cascade` ──
 // Supabase deja `public` con dueño `pg_database_owner` y con privilegios por defecto para `postgres` Y para
@@ -14,6 +14,8 @@
 import { conectarDemo } from './db.mjs'
 import { GuardiaError, verificarCentinela } from './guardia.mjs'
 import { migrar } from './migrar.mjs'
+import { sembrar } from './semilla.mjs'
+import { guardarSesiones } from './sesion.mjs'
 
 /* Todo lo de `public`, en el orden en que se puede soltar. `cascade` se lleva lo que dependa (triggers sobre
    auth.users, policies de storage.objects que llaman funciones de public), y lo que pertenece a una extensión
@@ -70,7 +72,10 @@ export async function resetear(db, { log = console.log } = {}) {
   log(`· ${cuentas} cuenta(s) borrada(s).`)
   await vaciarBucket(db.cfg, 'ip-docs', log)
 
-  return migrar(db, { log })
+  const migracion = await migrar(db, { log })
+  const semilla = await sembrar(db, { log })
+  await guardarSesiones(db.cfg, { log })
+  return { ...migracion, semilla }
 }
 
 /** Storage no deja borrar archivos con SQL (los borra su API, que también limpia el almacenamiento físico). */

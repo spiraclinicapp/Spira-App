@@ -577,7 +577,7 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - Surfaced by: D3, D10 (segunda opinión #2, #6)
   - Files: `scripts/demo/config.mjs`, `scripts/demo/guardia.mjs`, `scripts/demo/verificar.mjs`, `scripts/demo/*.test.ts`, `package.json` (`demo:verificar`)
   - Verify: `npm run test`; con una URL de pooler de prod en `demo.env`, aborta antes de escribir — **hecho el 2026-10-13**: 29 tests (con una mutación que rompe la lectura del usuario del pooler, fallan 5, entre ellos el crítico); `npm run demo:verificar` pasa contra el demo real y corrido a mano con `node` lo frena la guardia; `npm run build` verde (1948 tests)
-- [ ] **T2 (P1, humano: ~3 días / CC: ~1 día)** — demo — Resetear + semilla narrativa con RPC reales + sesión por `generateLink`. **Partida en dos PRs:**
+- [x] **T2 (P1, humano: ~3 días / CC: ~1 día)** — demo — Resetear + semilla narrativa con RPC reales + sesión por `generateLink`. **Partida en dos PRs:**
   - Surfaced by: D10 (segunda opinión #3, #4, #7)
   - [x] **T2a — migrar y resetear** (2026-10-13): `scripts/demo/{db,migraciones,migrar,resetear}.mjs` + tests, `pg` como devDependency, `npm run demo:migrar` / `demo:resetear`.
     - **Las 154 migraciones entraron al demo en la primera corrida, sin un error.** Quedaron 63 tablas, 25 vistas, 183 funciones y 136 policies en `public`, el bucket privado `ip-docs` y sus **dos** policies.
@@ -587,8 +587,26 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
     - **El reset vacía `public` objeto por objeto y no hace `drop schema`:** Supabase guarda privilegios por defecto de `supabase_admin` atados al schema, y `postgres` no los puede recrear. Verificado después del reset: el dueño, el ACL y los 6 privilegios por defecto quedaron intactos.
     - **Sin la centinela presente, el reset no corre** (test con un cliente falso que confirma que no se ejecuta nada).
     - `config.mjs` arma la cadena desde `DEMO_DB_URL` (con `[YOUR-PASSWORD]`) + `DEMO_DB_PASSWORD`, codificando la contraseña.
-  - [ ] **T2b — semilla narrativa + cuentas + sesión**: `scripts/demo/semilla.mjs`, que se suma al final del reset.
-  - Verify: `npm run demo:resetear`; `npm run dev -- --mode demo` muestra solo datos ficticios creíbles
+  - [x] **T2b — semilla narrativa + cuentas + sesión** (2026-10-13): `scripts/demo/{semilla,sesion,app}.mjs` + `semilla.test.ts`, `tutoriales/lib/sesion.ts`, `npm run demo:sesion` / `demo:app`. Receta: `docs/plan-tutoriales-semilla.md`.
+    - **`npm run demo:resetear` deja el centro ficticio en ~45 s, en la primera corrida y sin un error.** Son 4 cuentas (Valeria Sosa coord, Julieta Paz farma operator, Martín Ibarra farma leader, Dr. Andrés Ferro gerencia), ACME-301 con 5 visitas y 16 procedimientos, Bufomix con 60 en stock (lote L24A031), 4 pacientes y el pedido «solicitada». Cada paso corre como su cuenta, con las RPC reales.
+    - Mirado en la app (Edge headless, logueada con la sesión del archivo). El Resumen de Coordinación muestra «2 visitas hoy (1 en el centro, 1 por llegar)», la ventana vencida de Ernesto Villalba en Pendientes, 2 próximas el jueves y la dispensación solicitada. En Farmacia › Dispensaciones aparece Héctor Quiroga con «Preparar».
+    - **Las cuatro incertidumbres de la receta, resueltas:**
+      1. Las 183 funciones son de `postgres`, así que el guard de la 0132 (`guard_reception_items_write`) deja pasar a `create_reception`.
+      2. `auth.uid()` lee `request.jwt.claims->>'sub'`.
+      3. Ninguna alerta mira `dispenses` a secas: salen de `computed_status`, y `lleva_ip` queda en false.
+      4. `computed_status` compara `CURRENT_DATE` (UTC) con `window_end`, pero las ventanas de la semilla dejan días de margen. La semilla calcula «hoy» en hora AR, y hay un test para las 22:30.
+    - **`sello_autor` re-sella `arrived_by`/`ready_by` en cada cambio de marca.** Corregir las horas históricas como `postgres` pelado los dejaba en null, así que se corrigen con los claims de la coordinadora puestos. La receta no lo traía.
+    - **La fecha de alta también se corrige.** `create_patient_with_enrollment` la fija en `current_date`, la ficha la muestra, y un alta de hoy con un screening de hace seis semanas desentona. Se apaga `trg_guard_enrollment_immutable` sólo dentro de esa transacción.
+    - **El IVRS va como lo carga la app**: en `p_code` del alta (`NewPatientForm`), y `ivrsDeInscripcion` cae ahí. No hace falta el UPDATE de `enrollments.ivrs_code` (hallazgo E).
+    - **La sesión NO es un `storageState`:** la app la guarda en `sessionStorage` (`src/lib/supabase.ts`), y el `storageState` de Playwright sólo lleva cookies y `localStorage`.
+      - `sesion.mjs` guarda la entrada tal como la escribe supabase-js, en `%USERPROFILE%\.spira\demo-sesiones\<cuenta>.json`, fuera del repo como `demo.env`.
+      - `entrarComo(context, cuenta)` (`tutoriales/lib/sesion.ts`) la pone con `addInitScript`, sólo si no hay una.
+      - El refresh token es de un solo uso: se regenera en cada reset, y cada guion arranca de uno.
+    - **`npm run demo:app`** levanta la app contra el demo en el 5252: el `webServer` de T6 y la forma de mirarla a mano.
+      - `npm run dev -- --mode demo` solo no alcanza, porque no hay `.env.demo` y Vite completaría con el `.env` de prod.
+      - Inyecta las variables en el entorno del proceso y comprueba en el módulo servido que la URL sea la del demo, sin el ref de prod.
+    - El GTIN usa el prefijo GS1 `200` (uso interno, no se asigna a empresas) con el verificador bien calculado. El de la receta (`…457`) tenía mal el dígito.
+  - Verify: `npm run demo:resetear`; `npm run demo:app` muestra solo datos ficticios creíbles — **hecho el 2026-10-13** (ver T2b)
 - [ ] **T3 (P1, humano: ~1,5 días / CC: ~1,5 h)** — app — `AyudaDrawer` con Preguntas + `preguntas.ts` (+test) + fila en el menú de usuario + chip «Ayuda» en el buscador + entrada en Novedades
   - Surfaced by: D8 (preguntas en texto antes que los videos); DD3, DD4, DD6, DD7 del diseño
   - Files: `src/ayuda/AyudaDrawer.tsx`, `src/ayuda/preguntas.ts`, `src/ayuda/preguntas.test.ts`, `src/shell/UserMenu.tsx`, `src/shell/CommandPalette.tsx`, `src/shell/search/*`, las Novedades
