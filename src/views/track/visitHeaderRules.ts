@@ -1,8 +1,8 @@
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, STAGE_ORDER } from '../visitStates'
 import { advanceRole } from './advanceStep'
-import { ageFromBirth, desvioDias, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
-import { addDaysISO, formatAR } from '../../lib/dates'
+import { ageFromBirth, desvioDias, marcaTardia, SEX_LABELS, FERTILITY_LABELS } from '../../lib/visits'
+import { addDaysISO, formatAR, formatDayMonth, formatTimeAR, isoDayAR } from '../../lib/dates'
 
 /**
  * Reglas puras del encabezado de la visita (rediseño `docs/handoff-visitas-encabezado/`).
@@ -296,6 +296,42 @@ export function marcaDeEtapa(
   if (visit.operational_stage === 'concurrio_al_centro') return visit.arrived_at
   if (visit.operational_stage === 'fin_atencion') return visit.ready_at
   return null
+}
+
+/**
+ * Lo que el listón dice al lado de la etapa: la hora de su marca (`marcaDeEtapa`), salvo que la visita se
+ * haya CARGADO TARDE. Entonces dice cuándo se cargó, no una hora que parece de la visita: «Fin de
+ * atención 09:51» al lado de una visita fechada el 8 se lee como que terminó a esa hora el 8 (2026-10-14,
+ * plan `docs/plan-visita-cargada-otro-dia.md`).
+ *
+ *   · fin o llegada con la marca de un día posterior a la fecha realizada (`marcaTardia`) → «cargada el 14 oct»;
+ *   · en atención por «Vino otro día» (0158, sin sello de inicio) → «cargada el 14 oct»;
+ *   · si no, la hora de la marca, o nada (en atención de siempre: su fecha no tiene hora).
+ */
+export function rotuloDeMarca(
+  visit: Pick<DayVisitRow, 'arrived_at' | 'ready_at' | 'operational_stage' | 'real_date' | 'cargada_en_otra_fecha_at'>,
+): string | null {
+  const cargadaEl = (ts: string) => `cargada el ${formatDayMonth(isoDayAR(ts))}`
+  if (visit.operational_stage === 'inicio_atencion') {
+    return visit.cargada_en_otra_fecha_at ? cargadaEl(visit.cargada_en_otra_fecha_at) : null
+  }
+  const marca = marcaDeEtapa(visit)
+  if (!marca) return null
+  return marcaTardia(marca, visit.real_date) ? cargadaEl(marca) : formatTimeAR(marca)
+}
+
+/**
+ * ¿«Atención médica» se puede pedir HOY para esta visita? `null` = sí; si no, por qué. Una visita en
+ * atención de OTRO día —cargada con «Vino otro día» (0158), o abierta desde la ficha— dejaba pedir el
+ * médico, y el pedido caía en la cola del día de la visita, que nadie mira. El día de la visita es su
+ * fecha realizada o, sin ella, el de la llegada; uno que no es hoy no tiene a quién llamar.
+ */
+export function atencionMedicaDeOtroDia(
+  visit: Pick<DayVisitRow, 'real_date' | 'arrived_at'>,
+  hoy: string,
+): string | null {
+  const dia = visit.real_date ?? (visit.arrived_at ? isoDayAR(visit.arrived_at) : null)
+  return dia && dia !== hoy ? `La visita es del ${formatDayMonth(dia)}` : null
 }
 
 // ————————————————————————————————————————————————————

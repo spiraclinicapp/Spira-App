@@ -4,10 +4,11 @@ import { Icon } from '../../../components/Icon'
 import { FilterDropdown } from '../../../components/FilterDropdown'
 import { ClearFilters } from '../../../components/FilterBar'
 import { Modal } from '../../../components/Modal'
-import { formatAR, formatDayMonth, formatTimeAR, minutesBetween } from '../../../lib/dates'
+import { formatAR, formatDayMonth, formatTimeAR, isoDayAR, minutesBetween } from '../../../lib/dates'
 import { formatNumberAR, formatShareAR, sharePct } from '../../../lib/numbers'
+import { marcaTardia } from '../../../lib/visits'
 import type { VisitaEquipo } from '../../../data/trackReports'
-import { formatMinutosLargo } from './agregados'
+import { duracionesDe, formatMinutosLargo } from './agregados'
 import {
   contarFiltros, FILTROS_VACIOS, filtrarDetalle, opcionesDetalle, resumenDetalle, SIN_ASIGNAR, tonoDesvio,
 } from './agregadosEquipo'
@@ -120,9 +121,9 @@ function MiniVisitas({ visitas, onAbrir }: { visitas: VisitaEquipo[]; onAbrir: (
               <td style={{ ...miniTd, fontVariantNumeric: 'tabular-nums' }}>{v.real_date ? formatAR(v.real_date) : '—'}</td>
               <td style={miniTd}>{v.patient_name}</td>
               <td style={miniTd}>{v.protocol_code} · {visitaTitulo(v)}</td>
-              <td style={{ ...miniTd, textAlign: 'center' }}>{duracion(v.arrived_at, v.attended_at)}</td>
-              <td style={{ ...miniTd, textAlign: 'center' }}>{duracion(v.attended_at, v.ready_at)}</td>
-              <td style={{ ...miniTd, textAlign: 'center' }}>{duracion(v.arrived_at, v.left_at)}</td>
+              <td style={{ ...miniTd, textAlign: 'center' }}>{formatMinutosLargo(duracionesDe(v).espera)}</td>
+              <td style={{ ...miniTd, textAlign: 'center' }}>{formatMinutosLargo(duracionesDe(v).atencion)}</td>
+              <td style={{ ...miniTd, textAlign: 'center' }}>{formatMinutosLargo(duracionesDe(v).estadia)}</td>
             </tr>
           ))}
         </tbody>
@@ -131,9 +132,13 @@ function MiniVisitas({ visitas, onAbrir }: { visitas: VisitaEquipo[]; onAbrir: (
   )
 }
 
-function duracion(desde: string | null, hasta: string | null): string {
-  if (!desde || !hasta) return '—'
-  return formatMinutosLargo(minutesBetween(desde, hasta))
+/**
+ * La hora de un sello, y su DÍA si se registró después de la fecha de la visita (`marcaTardia`): una
+ * visita del 8 cargada el 14 mostraba «09:51» como si hubiera llegado a esa hora el 8. Las duraciones
+ * salen de `duracionesDe`, que ya no cuenta esos sellos (plan `docs/plan-visita-cargada-otro-dia.md`).
+ */
+function horaDelSello(ts: string, realDate: string | null): string {
+  return marcaTardia(ts, realDate) ? `${formatDayMonth(isoDayAR(ts))} · ${formatTimeAR(ts)}` : formatTimeAR(ts)
 }
 
 /* ───────────────────────────── Carga de trabajo mensual ───────────────────────────── */
@@ -393,11 +398,11 @@ const tdDenso: CSSProperties = { padding: '9px 12px', borderBottom: '1px solid v
 const thDenso: CSSProperties = { ...th, padding: '10px 12px 8px' }
 
 /** Un sello: la hora y quién la marcó. Es el punto del bloque — auditar quién registró cada cosa. */
-function Sello({ ts, quien }: { ts: string | null; quien: string | null }) {
+function Sello({ ts, quien, realDate }: { ts: string | null; quien: string | null; realDate: string | null }) {
   if (!ts) return <span style={dash}>—</span>
   return (
     <div>
-      <div style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{formatTimeAR(ts)}</div>
+      <div style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{horaDelSello(ts, realDate)}</div>
       <div style={{ fontSize: 11, color: 'var(--spira-ink-soft)' }}>{quien ?? 'sin registro'}</div>
     </div>
   )
@@ -512,10 +517,10 @@ export function DetalleVisitas({
                       <div style={{ fontSize: 11, color: 'var(--spira-ink-soft)' }}>{visitaTitulo(v)}</div>
                     </td>
                     <td style={{ ...tdDenso, color: 'var(--spira-ink-soft)' }}>{TIPO_VISITA_LABELS[x.tipo]}</td>
-                    <td style={tdDenso}><Sello ts={v.arrived_at} quien={v.arrived_by_name} /></td>
-                    <td style={tdDenso}><Sello ts={v.attended_at} quien={v.coordinator_id ? nombreDeCoordinadora(v) : null} /></td>
-                    <td style={tdDenso}><Sello ts={v.ready_at} quien={v.ready_by_name} /></td>
-                    <td style={tdDenso}><Sello ts={v.left_at} quien={v.left_by_name} /></td>
+                    <td style={tdDenso}><Sello ts={v.arrived_at} quien={v.arrived_by_name} realDate={v.real_date} /></td>
+                    <td style={tdDenso}><Sello ts={v.attended_at} quien={v.coordinator_id ? nombreDeCoordinadora(v) : null} realDate={v.real_date} /></td>
+                    <td style={tdDenso}><Sello ts={v.ready_at} quien={v.ready_by_name} realDate={v.real_date} /></td>
+                    <td style={tdDenso}><Sello ts={v.left_at} quien={v.left_by_name} realDate={v.real_date} /></td>
                     <td style={{ ...tdDenso, textAlign: 'center', fontVariantNumeric: 'tabular-nums', fontWeight: x.espera != null && x.espera > 30 ? 700 : 400, color: x.espera != null && x.espera > 30 ? 'var(--spira-acc-deep-warn)' : undefined }}>
                       {formatMinutosLargo(x.espera)}
                     </td>
@@ -562,10 +567,11 @@ export function ModalVisita({ v, onClose, onAbrirVisita, accentSolid }: {
     { hito: 'Fin de atención', ts: v.ready_at, quien: v.ready_by_name },
     { hito: 'Salida', ts: v.left_at, quien: v.left_by_name },
   ]
+  const d = duracionesDe(v)
   const metricas: [string, string][] = [
-    ['Espera', duracion(v.arrived_at, v.attended_at)],
-    ['Atención', duracion(v.attended_at, v.ready_at)],
-    ['Estadía total', duracion(v.arrived_at, v.left_at)],
+    ['Espera', formatMinutosLargo(d.espera)],
+    ['Atención', formatMinutosLargo(d.atencion)],
+    ['Estadía total', formatMinutosLargo(d.estadia)],
   ]
   let anterior: string | null = null
 
@@ -589,8 +595,11 @@ export function ModalVisita({ v, onClose, onAbrirVisita, accentSolid }: {
 
       <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {pasos.map((p, i) => {
-          const delta = p.ts && anterior ? minutesBetween(anterior, p.ts) : null
-          if (p.ts) anterior = p.ts
+          // El «+N min» desde el sello anterior sólo entre sellos del día de la visita: entre dos tardíos
+          // (cargada días después) daba «+0 min» que no pasaron.
+          const delDia = !!p.ts && !marcaTardia(p.ts, v.real_date)
+          const delta = delDia && anterior ? minutesBetween(anterior, p.ts!) : null
+          if (delDia) anterior = p.ts
           return (
             <li key={p.hito} style={{ display: 'grid', gridTemplateColumns: '18px 1fr auto', gap: 12, paddingBottom: i === pasos.length - 1 ? 0 : 14, position: 'relative' }}>
               {i < pasos.length - 1 && <span aria-hidden style={{ position: 'absolute', left: 8, top: 16, bottom: 0, width: 1, background: 'var(--spira-line-2)' }} />}
@@ -602,7 +611,7 @@ export function ModalVisita({ v, onClose, onAbrirVisita, accentSolid }: {
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.ts ? formatTimeAR(p.ts) : '—'}</div>
+                <div style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{p.ts ? horaDelSello(p.ts, v.real_date) : '—'}</div>
                 {delta != null && <div style={{ fontSize: 11.5, color: 'var(--spira-acc-deep-track)', fontVariantNumeric: 'tabular-nums' }}>+{formatMinutosLargo(delta)}</div>}
               </div>
             </li>
