@@ -411,7 +411,9 @@ del handoff del 14 («Volver» sólo la marca de hoy).
     con esa fecha». El modal no muestra el selector: dice el día (`fechaFijaParaCargar`, con test).
 - **Por qué la fecha fija:** el paciente vino ese día. Otra fecha dejaría «llegó el 10, atendida el 8», o la
   visita en dos días de la lista (el de la llegada y el de la fecha).
-- **Orden:** aditiva, la 0160 primero. **Aplicada en prod el 2026-10-14**, antes de abrir la PR del front.
+- **Orden:** aditiva, la 0160 primero. Se dio por aplicada el 2026-10-14, pero la copia pegada estaba toda comentada y
+  no corrió nada; el front (#488) se desplegó sin su base. **Aplicada de verdad el 2026-10-15**, con una copia sin
+  comentarios, y verificada por `prosrc`.
 - **Queda igual, a propósito:** «Iniciar atención» sobre una visita que llegó otro día sigue sellando la hora de
   hoy (`start_visit_attention`). La salida honesta para ese caso es «Vino otro día…».
 
