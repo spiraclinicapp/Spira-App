@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto } from './vinoOtroDia'
+import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto, quienesPudieronAtenderla } from './vinoOtroDia'
 
 /*
  * Lo que «Vino otro día» propone por defecto (0158). Falla en silencio: el modal se ve igual proponiendo
@@ -41,5 +41,31 @@ describe('quién la atendió', () => {
     expect(atendioPorDefecto({ coordinator_id: null }, [{ id: 'lautaro' }])).toBe('lautaro')
     expect(atendioPorDefecto({ coordinator_id: null }, estudio)).toBe('')
     expect(atendioPorDefecto({ coordinator_id: null }, [])).toBe('')
+  })
+})
+
+/* 0159 · «Gerencia puede hacer todo lo que pueden hacer los roles inferiores» (Director, 2026-10-14). TEST-QA no
+   tenía coordinadores y «Vino otro día» no se podía usar: quien carga, si es de gerencia, también se ofrece. */
+describe('a quién se ofrece', () => {
+  const estudio = [{ id: 'lautaro', full_name: 'Lautaro Molina' }]
+  it('los coordinadores del estudio, tal cual', () => {
+    expect(quienesPudieronAtenderla(estudio, null)).toEqual([{ id: 'lautaro', nombre: 'Lautaro Molina', deGerencia: false }])
+  })
+  it('quien carga, si es de gerencia, al final y marcada como gerencia', () => {
+    expect(quienesPudieronAtenderla(estudio, { id: 'director', nombre: 'Spira Clinic', esGerencia: true })).toEqual([
+      { id: 'lautaro', nombre: 'Lautaro Molina', deGerencia: false },
+      { id: 'director', nombre: 'Spira Clinic', deGerencia: true },
+    ])
+  })
+  it('un estudio sin coordinadores deja a gerencia nombrarse (y queda propuesta: es la única opción)', () => {
+    const lista = quienesPudieronAtenderla([], { id: 'director', nombre: 'Spira Clinic', esGerencia: true })
+    expect(lista.map((p) => p.id)).toEqual(['director'])
+    expect(atendioPorDefecto({ coordinator_id: null }, lista)).toBe('director')
+  })
+  it('quien carga sin gerencia no se suma; y si ya coordina el estudio, no se repite', () => {
+    expect(quienesPudieronAtenderla(estudio, { id: 'otra', nombre: 'Otra', esGerencia: false })).toHaveLength(1)
+    expect(quienesPudieronAtenderla(estudio, { id: 'lautaro', nombre: 'Lautaro Molina', esGerencia: true })).toEqual([
+      { id: 'lautaro', nombre: 'Lautaro Molina', deGerencia: false },
+    ])
   })
 })

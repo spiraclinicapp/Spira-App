@@ -11,8 +11,9 @@ import type { DayVisitRow } from '../../data/dayVisits'
 import { useProtocolCoordinators } from '../../data/pharma/coordinators'
 import { formatDayMonth, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { fueraDeVentana } from '../../lib/visits'
+import { useAuth } from '../../lib/auth'
 import { nombreDeLaVisita } from './accionesDeVisita'
-import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto } from './vinoOtroDia'
+import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto, quienesPudieronAtenderla } from './vinoOtroDia'
 
 /**
  * «Vino otro día» (0158, plan `docs/plan-visita-cargada-otro-dia.md`): una visita POR LLEGAR que pasó y no
@@ -24,6 +25,10 @@ import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto } f
  *
  * Lo que propone por defecto —y por qué— vive en `vinoOtroDia.ts`. Mientras no se toca un campo vale su
  * defecto, que se recalcula cuando llegan el mínimo y los coordinadores (sin efectos que lo pisen).
+ *
+ * «¿Quién la atendió?» ofrece los coordinadores del estudio y, si quien carga es de gerencia, también a esa
+ * persona (0159: gerencia puede todo lo que pueden los roles inferiores). Sin eso, un estudio sin
+ * coordinadores asignados no dejaba cargar nada.
  */
 export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
   visit: DayVisitRow
@@ -33,6 +38,7 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
   onDone: (fecha: string) => void
 }) {
   const hoy = todayISO()
+  const { profile, modules } = useAuth()
   const minima = useFechaMinimaParaCargar(visit.id)
   const coords = useProtocolCoordinators(visit.protocol_id)
   const [fechaTocada, setFecha] = useState<string | null>(null)
@@ -41,11 +47,13 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
   const [error, setError] = useState<string | null>(null)
 
   const fecha = fechaTocada ?? (minima.loading ? '' : fechaParaCargarPorDefecto(visit, hoy, minima.data))
-  const delEstudio = coords.data ?? []
-  const atendio = atendioTocado ?? atendioPorDefecto(visit, delEstudio)
+  // Los coordinadores del estudio y, si quien carga es de gerencia, también esa persona (0159).
+  const yo = profile ? { id: profile.id, nombre: profile.fullName, esGerencia: modules.includes('gerencia') } : null
+  const opciones = quienesPudieronAtenderla(coords.data ?? [], yo)
+  const atendio = atendioTocado ?? atendioPorDefecto(visit, opciones)
   // Vacío de verdad, no un error de lectura: con error la lista también viene vacía, y decir «el estudio
   // no tiene coordinadores» sería afirmar algo que no se sabe.
-  const sinCoordinadores = !coords.loading && !coords.error && delEstudio.length === 0
+  const sinCoordinadores = !coords.loading && !coords.error && opciones.length === 0
   const listo = !!fecha && !!atendio && !busy
 
   const submit = async (e: FormEvent<HTMLFormElement>) => {
@@ -99,7 +107,7 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
           <SearchableSelect
             value={atendio}
             onChange={setAtendio}
-            options={delEstudio.map((c) => ({ value: c.id, label: c.full_name }))}
+            options={opciones.map((p) => ({ value: p.id, label: p.nombre, desc: p.deGerencia ? 'De gerencia' : undefined }))}
             placeholder={coords.loading ? 'Cargando…' : sinCoordinadores ? 'El estudio no tiene coordinadores' : 'Elegí quién la atendió'}
             disabled={busy || coords.loading || sinCoordinadores || !!coords.error}
             entity="coordinador"
