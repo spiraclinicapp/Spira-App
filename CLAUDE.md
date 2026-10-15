@@ -60,7 +60,7 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
-   número. La última aplicada va por la `0158` (ver `supabase/README.md`).
+   número. La última aplicada va por la `0159` (ver `supabase/README.md`).
    **Y adentro de una función con `set search_path` acotado, calificá todo lo que no sea de
    `public` ni de `pg_catalog`.** `uuid_generate_v4()` (uuid-ossp) vive en el schema `extensions`
    en Supabase: sin calificar, la migración aplica **en verde** —plpgsql no resuelve las llamadas
@@ -90,7 +90,7 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
    la consulta entera**, no solo el embed). Pasó con la 0076 el 2026-08-13 y tiró el tablero de
    Farmacia; se arregla desambiguando por columna (`medications!medication_id`). Antes de agregar
    una FK, buscá la tabla en los `select(...)` del front.
-   Cuatro trampas que ya hicieron fallar SQL en prod y conviene tener presentes al escribirlo:
+   Cinco trampas que ya hicieron fallar SQL en prod y conviene tener presentes al escribirlo:
    **`ALTER TYPE ... ADD VALUE` no puede usar el valor nuevo en la misma transacción** (va en un
    archivo aparte, aplicado antes — ver 0053); en PL/pgSQL los nombres de un
    **`returns table (...)` compiten con los de columna sin calificar** (calificá siempre; ver
@@ -111,6 +111,16 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
    función `plpgsql` y llamala. Y escribí las sentencias **idempotentes y en orden de dependencias**,
    para que reintentar sea volver a correr el bloque entero (ver `supabase/_borrar_test_ip.sql`,
    2026-08-11).
+   Y una quinta, del **aviso de «tabla sin RLS»** del editor: detecta tablas nuevas **sin entender el
+   dollar-quoting**, así que un `select … into v_algo` de PL/pgSQL (asignar a una variable) le parece un
+   `SELECT INTO` que crea la tabla `v_algo`. Si se acepta **activar RLS**, mete un `ALTER TABLE v_algo
+   ENABLE ROW LEVEL SECURITY` en medio del cuerpo y corta la sentencia ahí: `42601: unterminated
+   dollar-quoted string`, con el `ALTER TABLE` a la vista en el error. Pasó con la 0159 (2026-10-14); la
+   0158, con el mismo `select … into`, entró bien porque no se aceptó. Al pasarle al Director una
+   migración con funciones que usan `select … into`, **avisale que, si sale ese aviso, la corra SIN
+   activar RLS**. Y para confirmar que una función quedó, mirá su cuerpo (`select prosrc like '%…%' from
+   pg_proc where proname = '…'`), no su `comment on function`: si el editor siguió con las sentencias de
+   después, el comentario puede ser el nuevo y la función la vieja.
 4. **El preview es una sesión de navegador aparte de la del usuario.** No podés precargarle
    formularios ni ver su estado; verificá las escrituras recargando tu propia instancia.
 
