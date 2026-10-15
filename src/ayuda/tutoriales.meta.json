@@ -1,4 +1,38 @@
 {
+  "agendar-reprogramar": {
+    "version": "f5d05c7d",
+    "duracionMs": 48960,
+    "capitulos": [
+      {
+        "inicioMs": 0,
+        "titulo": "La ficha"
+      },
+      {
+        "inicioMs": 6402,
+        "titulo": "Agendar"
+      },
+      {
+        "inicioMs": 22635,
+        "titulo": "Reprogramar"
+      },
+      {
+        "inicioMs": 33087,
+        "titulo": "Fuera de la ventana"
+      }
+    ],
+    "transcripcion": [
+      "En la ficha del paciente está su cronograma de visitas. Desde acá se agenda una visita nueva y se reprograma la próxima.",
+      "Para agendar, pulsá el botón «Agendar visita».",
+      "Elegí qué vas a hacer. Por ejemplo, una VNP: una visita no programada.",
+      "Poné la fecha y, si querés, marcá lo que lleva.",
+      "Pulsá el botón «Agendar»: la visita se suma al cronograma.",
+      "Para cambiarle la fecha a la próxima visita, pulsá el botón «Reprogramar».",
+      "Arriba ves la ventana permitida. Escribí la nueva fecha y pulsá el botón «Guardar fecha».",
+      "Si la fecha cae fuera de la ventana, Spira te avisa: pulsá el botón «Volver» para elegir otra, o «Confirmar igual» para dejarla así.",
+      "Con una fecha dentro de la ventana, se guarda directamente.",
+      "Listo: el cronograma ya muestra la visita nueva y la nueva fecha."
+    ]
+  },
   "atender-visita": {
     "version": "1b16d50a",
     "duracionMs": 32720,

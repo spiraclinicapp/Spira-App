@@ -94,8 +94,9 @@ export const PREGUNTAS: readonly Pregunta[] = [
     modulo: 'track',
     pregunta: '¿Cómo agendo o reprogramo una visita?',
     respuesta:
-      'Para agendar, en la ficha del paciente pulsá el botón «Agendar visita», o en Visitas, vista Día, el botón «Agregar visita», y elegí qué vas a hacer: una visita del estudio, un Retest, una VNP o continuar pendientes. Para reprogramar, pulsá el botón «Reprogramar» en la ficha, o elegí «Reprogramar» en el menú de la fila en Visitas; después elegí la nueva fecha y pulsá el botón «Guardar fecha». Si la fecha cae fuera de la ventana, Spira te avisa y tenés que pulsar el botón «Confirmar igual».\n\nSolo se reprograma una visita que todavía no tiene fecha real.',
+      'Para agendar, en la ficha del paciente pulsá el botón «Agendar visita», o en Visitas, vista Día, el botón «Agregar visita», y elegí qué vas a hacer: un Retest, una VNP y, según el caso, una visita del estudio o continuar pendientes. Para reprogramar, pulsá el botón «Reprogramar» en la ficha, o elegí «Reprogramar» en el menú de la fila en Visitas; después elegí la nueva fecha y pulsá el botón «Guardar fecha». Si la fecha cae fuera de la ventana, Spira te avisa y tenés que pulsar el botón «Confirmar igual».\n\nSolo se reprograma una visita que todavía no tiene fecha real.',
     palabras: ['agenda', 'turno', 'fecha', 'ventana', 'retest'],
+    tutorial: 'agendar-reprogramar',
   },
   {
     id: 'para-ver-medico',

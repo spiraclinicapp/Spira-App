@@ -75,11 +75,16 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
   for (const [i, paso] of g.pasos.entries()) {
     const inicioMs = Date.now() - t0
     const antes = Date.now()
-    if (paso.hace) await paso.hace(escena)
-    // Una foto de cada paso en `.trabajo/` (para mirar qué pasó si la toma falla; la de referencia de
-    // `verificar` sale aparte). Tarda, y se cuenta como parte de la acción, para que la espera que sigue sea
-    // exactamente lo que le falta al audio (si no, la voz del paso se pisa con la del siguiente).
-    await page.screenshot({ path: join(trabajo, `paso-${String(i + 1).padStart(2, '0')}.png`) })
+    /* La foto del paso en `.trabajo/` se saca SÓLO si el paso falla. Antes iba en todos, y cada `page.screenshot`
+       pausa la grabación del video: el atraso se acumulaba paso a paso. En «Agendar y reprogramar» la acción del
+       décimo paso salía ~2 s después de su voz, y explica el contador atrasado de «Dispensar» (2026-10-15). La
+       de referencia de `verificar` sale aparte, en otra pasada, y no graba video. */
+    try {
+      if (paso.hace) await paso.hace(escena)
+    } catch (e) {
+      await page.screenshot({ path: join(trabajo, `paso-${String(i + 1).padStart(2, '0')}-fallo.png`) }).catch(() => {})
+      throw e
+    }
     const accionMs = Date.now() - antes
     const audioMs = audios[i]?.duracionMs ?? 0
     await page.waitForTimeout(esperaRestante(audioMs, accionMs))
@@ -103,7 +108,11 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
   const tramos = armarTramos(medidos)
   writeFileSync(join(carpeta, 'subtitulos.vtt'), armarVtt(tramos), 'utf8')
   const iPoster = Math.max(0, g.pasos.findIndex((p) => p.poster))
-  extraerPoster(join(carpeta, 'video.mp4'), medidos[iPoster].inicioMs + Math.min(800, medidos[iPoster].audioMs), join(carpeta, 'poster.jpg'))
+  /* El póster, al FINAL del paso: lo último antes de que empiece el siguiente, con la acción hecha y la voz dicha.
+     Es el cuadro más quieto: la página cargó, el modal terminó de abrir y las pistas que dejó el mouse al pasar ya
+     se cerraron. Antes iba a 0,8 s del inicio (ver `Paso.poster`). */
+  const posterMs = medidos[iPoster].inicioMs + Math.max(medidos[iPoster].audioMs, medidos[iPoster].accionMs) - 150
+  extraerPoster(join(carpeta, 'video.mp4'), Math.max(0, posterMs), join(carpeta, 'poster.jpg'))
   /* La duración del meta es la del mp4 MEDIDO, no la planeada: la de la píldora tiene que ser la del
      reproductor (QA de T5: decía «0:15» y el video duraba 0:17). */
   const duracionMs = duracionDelVideo(join(carpeta, 'video.mp4'))

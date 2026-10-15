@@ -50,6 +50,17 @@ export const TUTORIALES: readonly Tutorial[] = [
     descripcion:
       'Desde la fila del paciente: marcás la llegada, iniciás la atención y la finalizás. Spira registra la hora de cada paso.',
   },
+  {
+    /* Sin `vista`: Visitas ya ofrece «Atender una visita» y la píldora es una por pantalla, y la ficha del paciente es
+       una sub-pantalla (con migas), donde la píldora no sale. Se llega desde el panel de Ayuda y desde la pregunta
+       «¿Cómo agendo o reprogramo una visita?». */
+    id: 'agendar-reprogramar',
+    modulo: 'track',
+    titulo: 'Agendar y reprogramar una visita',
+    resumen: 'Desde la ficha del paciente',
+    descripcion:
+      'Agendás una visita nueva —una VNP, por ejemplo— y le cambiás la fecha a la próxima, con lo que pasa si cae fuera de la ventana.',
+  },
 
   /* —— Farmacia —— */
   {
