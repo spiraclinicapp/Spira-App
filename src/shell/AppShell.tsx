@@ -50,19 +50,11 @@ function Crumb({ crumb }: { crumb: ViewHeaderCrumb }) {
   )
 }
 
-/* Etiqueta del botón de acción según módulo/submódulo (voseo, sentence case). */
-const ACTION_LABELS: Record<string, string> = {
-  'track/resumen': 'Nueva visita',
-  'track/protocolos': 'Nuevo protocolo',
-  'track/agenda': 'Nueva visita',
-  'pharma/dispensaciones': 'Nueva dispensación',
-  'pharma/medicamentos': 'Agregar medicamento',
-  'pharma/protocolos': 'Nuevo protocolo',
-}
-
-/* Vistas portadas que traen sus propias acciones contextuales (o son de solo
-   lectura): para ellas se suprime el botón de acción genérico del shell. */
-const HIDE_ACTION = new Set(['inicio/resumen', 'track/resumen', 'track/tareas', 'track/protocolos', 'track/visitas', 'track/para-ver-medico', 'track/agenda', 'track/alertas', 'track/reportes-pendientes', 'track/reportes', 'pharma/protocolos', 'pharma/recepcion', 'pharma/medicamentos', 'pharma/reportes', 'pharma/reposicion'])
+/* Ya no hay un botón de acción GENÉRICO en el encabezado (2026-10-14). Era del prototipo: el shell dibujaba
+   «Nuevo…» en toda pantalla que no estuviera en una lista de excepciones, sin `onClick`. Cada vista ya publica
+   sus acciones con `setHeader`, así que sólo se veía donde una vista decidía NO publicar ninguna: en
+   Dispensaciones, a quien tiene Farmacia de sólo lectura le aparecía un «Nueva dispensación» que no hacía nada
+   (un botón que finge, en una app auditable). Sin acciones publicadas, el encabezado queda sin botón. */
 
 const iconBtn: CSSProperties = {
   width: 38, height: 38, borderRadius: 10, border: 'none',
@@ -295,9 +287,6 @@ export function AppShell() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [])
-
-  const action = ACTION_LABELS[`${moduleKey}/${sub.key}`] ?? 'Nuevo'
-  const showAction = !HIDE_ACTION.has(`${moduleKey}/${sub.key}`)
 
   /* Guard de ruta. Se calcula ACÁ (antes del efecto del título, no solo antes del `return`) porque el
      título lo necesita: si la pantalla no va a mostrar `sub` (el guard va a disparar más abajo), el
@@ -660,10 +649,6 @@ export function AppShell() {
                       </button>
                     ))}
                   </div>
-                ) : showAction ? (
-                  <button style={{ ...primaryActionBtn(mod.accentSolid), marginLeft: 'auto' }}>
-                    <Icon name="plus" size={16} color="var(--spira-on-accent)" /> {action}
-                  </button>
                 ) : null}
               </div>
 
