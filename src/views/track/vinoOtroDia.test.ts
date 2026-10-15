@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto, quienesPudieronAtenderla } from './vinoOtroDia'
+import { atendioPorDefecto, fechaFijaParaCargar, fechaMaximaParaCargar, fechaParaCargarPorDefecto, quienesPudieronAtenderla } from './vinoOtroDia'
 
 /*
  * Lo que «Vino otro día» propone por defecto (0158). Falla en silencio: el modal se ve igual proponiendo
@@ -26,6 +26,27 @@ describe('la fecha', () => {
   it('una citación anterior al mínimo (la visita previa ya hecha) tampoco: la base la rechazaría', () => {
     expect(fechaParaCargarPorDefecto({ estimated_date: '2026-10-08' }, HOY, '2026-10-10')).toBe('')
     expect(fechaParaCargarPorDefecto({ estimated_date: '2026-10-10' }, HOY, '2026-10-10')).toBe('2026-10-10') // el mínimo vale
+  })
+})
+
+/* 0160: una visita en Concurrió que llegó OTRO día se carga con el día de la llegada, sin elegir. Si quedara
+   al revés, el modal propondría una fecha que la base rechaza («Llegó el …»), o se ofrecería para una
+   visita que llegó hoy y sólo tiene que iniciar la atención. */
+describe('la fecha fija (Concurrió de otro día)', () => {
+  const concurrio = (arrived_at: string | null) => ({ operational_stage: 'concurrio_al_centro' as const, arrived_at })
+  it('llegó otro día: el día de la llegada', () => {
+    expect(fechaFijaParaCargar(concurrio('2026-10-10T14:37:00.000Z'), HOY)).toBe('2026-10-10')
+  })
+  it('el día es el ARGENTINO: las 23:30 del 13 en AR son el 14 en UTC, y fue ayer', () => {
+    expect(fechaFijaParaCargar(concurrio('2026-10-14T02:30:00.000Z'), HOY)).toBe('2026-10-13')
+  })
+  it('llegó hoy: no aplica (para eso está «Iniciar atención»)', () => {
+    expect(fechaFijaParaCargar(concurrio('2026-10-14T13:00:00.000Z'), HOY)).toBeNull()
+  })
+  it('fuera de Concurrió, o sin llegada: no aplica', () => {
+    expect(fechaFijaParaCargar({ operational_stage: 'por_llegar', arrived_at: null }, HOY)).toBeNull()
+    expect(fechaFijaParaCargar({ operational_stage: 'inicio_atencion', arrived_at: '2026-10-10T14:37:00.000Z' }, HOY)).toBeNull()
+    expect(fechaFijaParaCargar(concurrio(null), HOY)).toBeNull()
   })
 })
 
