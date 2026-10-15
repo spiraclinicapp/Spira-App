@@ -116,6 +116,15 @@ export const PREGUNTAS: readonly Pregunta[] = [
     tutorial: 'dispensar',
   },
   {
+    id: 'dispensar-sin-pedido',
+    modulo: 'pharma',
+    pregunta: '¿Puedo dispensar sin un pedido de Coordinación?',
+    respuesta:
+      'Sí. En Dispensaciones, pulsá el botón «Nueva dispensación» y, en «De protocolo», elegí al paciente y la visita en la que se entrega; si vino sin turno, pulsá el botón «Registrar una visita no programada de hoy». Agregá la medicación (sólo aparece la que el paciente tiene habilitada) y pulsá el botón «Crear y preparar»: la dispensación pasa directo a Preparando y se sigue como cualquier pedido.\n\nSi quien se la lleva no es paciente de un estudio, elegí «Ambulatoria»: se entrega en el momento y queda asentada en el libro de stock.',
+    palabras: ['nueva dispensación', 'sin pedido', 'alta manual', 'ambulatoria', 'visita no programada'],
+    tutorial: 'nueva-dispensacion',
+  },
+  {
     id: 'escaneo-no-corresponde',
     modulo: 'pharma',
     pregunta: '¿Qué pasa si el código escaneado no corresponde?',
