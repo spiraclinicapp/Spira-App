@@ -732,6 +732,10 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
     - Publicar dos veces lo mismo: «ya estaba, idéntico», sin pisar.
   - **Orden:** se corre ANTES de mergear el meta que publica la versión. La versión va explícita porque ese meta vive en una rama sin mergear.
 - [ ] **T8 (P2, etapa 2)** — contenido — Guiones de los flujos elegidos por el Director + sus píldoras «Cómo se hace»
+  - **Primera tanda (2026-10-14, #487 y #489), en prod:** «Conocé Farmacia» (`conocer-farmacia`, en `pharma/protocolos`: qué es cada pantalla) y «Dispensar sin un pedido» (`nueva-dispensacion`, sin `vista` porque la píldora es una por pantalla: panel de Ayuda + pregunta `dispensar-sin-pedido`).
+  - La semilla del demo suma el día de corte y cómo se repone (paso 10), y `captura.ts` saca las referencias con las animaciones terminadas.
+  - El póster se toma a 0,8 s del paso marcado: nunca en un paso que navega (`Paso.poster`, #489).
+  - Próximos: los elige el Director. Hoy no hay ninguno de Coordinación ni de Recepción.
 
 ## Approved Mockups
 
