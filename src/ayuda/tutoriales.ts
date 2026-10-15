@@ -30,6 +30,28 @@ export interface Tutorial {
 
 /** En el orden en que se listan dentro de cada módulo (el de un curso). */
 export const TUTORIALES: readonly Tutorial[] = [
+  /* —— Coordinación —— */
+  {
+    /* El primero del curso: qué es cada pantalla. Se ofrece en Resumen, la que se abre al entrar a Coordinación. */
+    id: 'conocer-coordinacion',
+    modulo: 'track',
+    vista: 'track/resumen',
+    titulo: 'Conocé Coordinación',
+    resumen: 'Para qué sirve cada pantalla del módulo',
+    descripcion:
+      'Un recorrido por las pantallas de Coordinación: cómo viene el día, los estudios, las visitas, lo pendiente y los números del período.',
+  },
+  {
+    id: 'atender-visita',
+    modulo: 'track',
+    vista: 'track/visitas',
+    titulo: 'Atender una visita',
+    resumen: 'De la llegada al fin de la atención',
+    descripcion:
+      'Desde la fila del paciente: marcás la llegada, iniciás la atención y la finalizás. Spira registra la hora de cada paso.',
+  },
+
+  /* —— Farmacia —— */
   {
     /* El primero del curso: qué es cada pantalla. Se ofrece en la que se abre al entrar a Farmacia. */
     id: 'conocer-farmacia',

@@ -79,6 +79,7 @@ export const PREGUNTAS: readonly Pregunta[] = [
     respuesta:
       'En Coordinación › Visitas, buscá al paciente y pulsá el botón «Marcar llegada» en su fila; también está en el detalle de la visita. La visita pasa a «Concurrió al centro», al lado del nombre aparece la hora en que llegó y el botón cambia a «Iniciar atención».\n\nSi la visita no es de hoy, Spira te pide confirmar antes.',
     palabras: ['llegada', 'concurrió', 'vino', 'ingreso'],
+    tutorial: 'atender-visita',
   },
   {
     id: 'pendientes',
