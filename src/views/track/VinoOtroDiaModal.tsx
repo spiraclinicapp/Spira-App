@@ -13,7 +13,7 @@ import { formatDayMonth, todayISO, yearsFromTodayISO } from '../../lib/dates'
 import { fueraDeVentana } from '../../lib/visits'
 import { useAuth } from '../../lib/auth'
 import { nombreDeLaVisita } from './accionesDeVisita'
-import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto, quienesPudieronAtenderla } from './vinoOtroDia'
+import { atendioPorDefecto, fechaFijaParaCargar, fechaMaximaParaCargar, fechaParaCargarPorDefecto, quienesPudieronAtenderla } from './vinoOtroDia'
 
 /**
  * «Vino otro día» (0158, plan `docs/plan-visita-cargada-otro-dia.md`): una visita POR LLEGAR que pasó y no
@@ -25,6 +25,9 @@ import { atendioPorDefecto, fechaMaximaParaCargar, fechaParaCargarPorDefecto, qu
  *
  * Lo que propone por defecto —y por qué— vive en `vinoOtroDia.ts`. Mientras no se toca un campo vale su
  * defecto, que se recalcula cuando llegan el mínimo y los coordinadores (sin efectos que lo pisen).
+ *
+ * Desde la 0160 también una visita EN CONCURRIÓ que llegó otro día: ahí la fecha no se elige, es la de la
+ * llegada (`fechaFijaParaCargar`), y el modal la dice en vez de mostrar el selector.
  *
  * «¿Quién la atendió?» ofrece los coordinadores del estudio y, si quien carga es de gerencia, también a esa
  * persona (0159: gerencia puede todo lo que pueden los roles inferiores). Sin eso, un estudio sin
@@ -46,7 +49,9 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fecha = fechaTocada ?? (minima.loading ? '' : fechaParaCargarPorDefecto(visit, hoy, minima.data))
+  // En Concurrió con la llegada de otro día la fecha no se elige: es la de la llegada (0160).
+  const fija = fechaFijaParaCargar(visit, hoy)
+  const fecha = fija ?? fechaTocada ?? (minima.loading ? '' : fechaParaCargarPorDefecto(visit, hoy, minima.data))
   // Los coordinadores del estudio y, si quien carga es de gerencia, también esa persona (0159).
   const yo = profile ? { id: profile.id, nombre: profile.fullName, esGerencia: modules.includes('gerencia') } : null
   const opciones = quienesPudieronAtenderla(coords.data ?? [], yo)
@@ -81,21 +86,30 @@ export function VinoOtroDiaModal({ visit, accent, onClose, onDone }: {
           </div>
         </div>
 
-        <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--spira-ink-soft)' }}>
-          Para una visita que pasó y no se marcó en su día. Queda en atención con esa fecha; después la
-          finalizás como siempre.
-        </p>
+        {fija ? (
+          <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--spira-ink-soft)' }}>
+            Llegó el <strong style={{ color: 'var(--spira-ink)' }}>{formatDayMonth(fija)}</strong> y la atención no
+            se inició ese día. Queda en atención con esa fecha; después la finalizás como siempre.
+          </p>
+        ) : (
+          <>
+            <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, color: 'var(--spira-ink-soft)' }}>
+              Para una visita que pasó y no se marcó en su día. Queda en atención con esa fecha; después la
+              finalizás como siempre.
+            </p>
 
-        <FormField label="Fecha en que vino">
-          <DateField
-            value={fecha}
-            onChange={setFecha}
-            min={minima.data ?? yearsFromTodayISO(-2)}
-            max={fechaMaximaParaCargar(hoy)}
-            disabled={minima.loading}
-            autoFocus
-          />
-        </FormField>
+            <FormField label="Fecha en que vino">
+              <DateField
+                value={fecha}
+                onChange={setFecha}
+                min={minima.data ?? yearsFromTodayISO(-2)}
+                max={fechaMaximaParaCargar(hoy)}
+                disabled={minima.loading}
+                autoFocus
+              />
+            </FormField>
+          </>
+        )}
         {fueraDeVentana(fecha || null, visit.window_start, visit.window_end) && (
           <div style={aviso}>
             <Icon name="alertCircle" size={16} color="var(--spira-warn)" style={{ flex: '0 0 auto', marginTop: 1 }} />

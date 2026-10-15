@@ -1,12 +1,13 @@
-import { addDaysISO } from '../../lib/dates'
+import { addDaysISO, isoDayAR } from '../../lib/dates'
 import type { DayVisitRow } from '../../data/dayVisits'
 
 /**
  * ┌─ «Vino otro día»: qué ofrece el modal antes de que se toque nada ─────────────────────────────┐
  *
  * Plan `docs/plan-visita-cargada-otro-dia.md` (0158). Una visita POR LLEGAR que pasó y no se marcó en
- * su día se carga con la fecha en que vino y a nombre de quien la atendió. Lo que se decide acá es lo
- * que el modal propone por defecto, y por qué:
+ * su día se carga con la fecha en que vino y a nombre de quien la atendió (y desde la 0160, también una
+ * en Concurrió que llegó otro día: `fechaFijaParaCargar`). Lo que se decide acá es lo que el modal
+ * propone por defecto, y por qué:
  *
  *   · la fecha: hasta AYER (para hoy está el camino de siempre, «Marcar llegada»); por defecto, la
  *     citación si ya pasó y no queda antes del mínimo —la visita que se olvidó suele ser la del día
@@ -24,6 +25,23 @@ import type { DayVisitRow } from '../../data/dayVisits'
 /** La última fecha que se puede elegir: ayer. */
 export function fechaMaximaParaCargar(hoy: string): string {
   return addDaysISO(hoy, -1)
+}
+
+/**
+ * Una visita EN CONCURRIÓ con la llegada de OTRO día también se carga (0160): llegó, no se inició la
+ * atención ese día, y hoy se quiere dejarla con su fecha. La fecha no se elige: es la del DÍA DE LA
+ * LLEGADA (el argentino), porque el paciente vino ese día. Otra dejaría «llegó el 10, atendida el 8», o
+ * la visita en dos días de la lista. La base exige lo mismo.
+ *
+ * `null` = no aplica: la visita no está en Concurrió, o llegó HOY (para eso está «Iniciar atención»).
+ */
+export function fechaFijaParaCargar(
+  v: Pick<DayVisitRow, 'operational_stage' | 'arrived_at'>,
+  hoy: string,
+): string | null {
+  if (v.operational_stage !== 'concurrio_al_centro' || !v.arrived_at) return null
+  const llego = isoDayAR(v.arrived_at)
+  return llego < hoy ? llego : null
 }
 
 /** La fecha que el modal propone. `minima` = `fecha_minima_para_cargar_visita` (null = sin mínimo). */

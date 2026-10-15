@@ -65,11 +65,12 @@ export function BotonEtapa({
   onAccion: (clave: ClaveAccion) => void
 }) {
   const [abierto, setAbierto] = useState<'menu' | 'llegada' | null>(null)
-  const [confirmandoBorrar, setConfirmandoBorrar] = useState(false)
+  /** La acción que está preguntando «¿seguro?» en el lugar de su ítem: Eliminar, o una con `confirmar`. */
+  const [confirmando, setConfirmando] = useState<ClaveAccion | null>(null)
   const masRef = useRef<HTMLButtonElement | null>(null)
   const popNodo = useRef<HTMLDivElement | null>(null)
 
-  const cerrar = useCallback(() => { setAbierto(null); setConfirmandoBorrar(false) }, [])
+  const cerrar = useCallback(() => { setAbierto(null); setConfirmando(null) }, [])
   const { triggerRef, popRef, pos } = usePopover<HTMLDivElement, HTMLDivElement>(abierto !== null, cerrar, true, 'end')
   const refPop = useCallback((n: HTMLDivElement | null) => { popRef(n); popNodo.current = n }, [popRef])
 
@@ -79,17 +80,18 @@ export function BotonEtapa({
   ) ?? [])
 
   /* El foco entra al popover cuando ya está pintado (`pos`): a la confirmación de llegada, el botón que
-     confirma; a la de borrar, «Eliminar» (handoff §3); al menú, su primer ítem habilitado. */
+     confirma; a la de una acción del menú, el suyo («Eliminar», handoff §3); al menú, su primer ítem
+     habilitado. */
   const montado = pos !== null
   useEffect(() => {
     if (!abierto || !montado) return
     const n = popNodo.current
     if (!n) return
     const destino = abierto === 'llegada' ? n.querySelector<HTMLElement>('[data-confirmar]')
-      : confirmandoBorrar ? n.querySelector<HTMLElement>('[data-borrar]')
+      : confirmando ? n.querySelector<HTMLElement>('[data-confirma-accion]')
       : enfocables()[0]
     destino?.focus({ preventScroll: true })
-  }, [abierto, montado, confirmandoBorrar])
+  }, [abierto, montado, confirmando])
 
   /* Si mientras la confirmación de llegada está abierta los datos se refrescan y la visita ya no la
      necesita (otra pestaña registró la llegada, la citación pasó a hoy), se cierra: no hay nada que
@@ -129,19 +131,19 @@ export function BotonEtapa({
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       if (abierto === 'menu') enfocables()[0]?.focus()
-      else { setConfirmandoBorrar(false); setAbierto('menu') }
+      else { setConfirmando(null); setAbierto('menu') }
     }
   }
 
   const alternarMenu = () => {
-    setConfirmandoBorrar(false)
+    setConfirmando(null)
     setAbierto((a) => (a === 'menu' ? null : 'menu'))
   }
 
   const pulsarCara = () => {
     if (!cara) return
     if (cara.confirmar) {
-      setConfirmandoBorrar(false)
+      setConfirmando(null)
       setAbierto((a) => (a === 'llegada' ? null : 'llegada'))
       return
     }
@@ -151,11 +153,59 @@ export function BotonEtapa({
 
   const elegir = (a: AccionDeVisita) => {
     if (!a.habilitada) return
-    if (a.clave === 'eliminar') { setConfirmandoBorrar(true); return }
+    // Eliminar pregunta siempre; el resto, si la regla lo pide (`confirmar`: «Volver» sobre una marca de
+    // otro día, 0160). La pregunta va en el lugar del ítem, sin abrir otra capa.
+    if (a.clave === 'eliminar' || a.confirmar) { setConfirmando(a.clave); return }
     // Cerrar ANTES de ejecutar: varias acciones abren un modal, y un menú abierto quedaría flotando
     // encima. El foco vuelve a la flecha; si la acción abre un modal, ése lo toma después.
     volverALaFlecha()
     onAccion(a.clave)
+  }
+
+  const itemDe = (a: AccionDeVisita) => (
+    <button
+      type="button"
+      role="menuitem"
+      tabIndex={-1}
+      aria-disabled={a.habilitada ? undefined : true}
+      className={`spira-split-item spira-no-press${a.peligro ? ' spira-split-item--peligro' : ''}`}
+      onClick={() => elegir(a)}
+    >
+      <Icon name={a.icono} size={16} color="currentColor" />
+      <span className="spira-split-tx">
+        {a.titulo}
+        {a.bajada && <span className="spira-split-sub">{a.bajada}</span>}
+      </span>
+      {a.aparte && <span className="spira-split-aparte">{a.aparte}</span>}
+    </button>
+  )
+
+  /* La pregunta en el lugar del ítem. Eliminar arma su texto acá (necesita el nombre de la visita) y
+     confirma en rojo; el resto trae el suyo de la regla y confirma con su propio título («Volver a Por
+     llegar»), que es lo que va a pasar. */
+  const confirmacionDe = (a: AccionDeVisita) => {
+    const borrar = a.clave === 'eliminar'
+    const pregunta = borrar ? `¿Eliminar la visita ${rotuloVisita}?` : a.confirmar?.pregunta
+    const detalle = borrar ? 'Se borra con sus registros. No se puede deshacer.' : a.confirmar?.detalle
+    return (
+      <div className="spira-split-confirma" role="group" aria-label={borrar ? 'Confirmar la eliminación' : `Confirmar: ${a.titulo}`}>
+        <p>
+          {pregunta}
+          <span>{detalle}</span>
+        </p>
+        <div className="spira-split-fila">
+          <button type="button" className="spira-split-btn spira-no-press" onClick={() => setConfirmando(null)}>Cancelar</button>
+          <button
+            type="button"
+            data-confirma-accion
+            className={`spira-split-btn ${borrar ? 'spira-split-btn--peligro' : 'spira-split-btn--primario'} spira-no-press`}
+            onClick={() => { volverALaFlecha(); onAccion(a.clave) }}
+          >
+            {borrar ? 'Eliminar' : a.titulo}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const frenar = (e: MouseEvent) => e.stopPropagation()
@@ -253,50 +303,12 @@ export function BotonEtapa({
               <b>Visita {encabezado.visita}</b>
               <span>{encabezado.etapa}</span>
             </div>
-            {acciones.map((a) => {
-              const item = (
-                <button
-                  type="button"
-                  role="menuitem"
-                  tabIndex={-1}
-                  aria-disabled={a.habilitada ? undefined : true}
-                  className={`spira-split-item spira-no-press${a.peligro ? ' spira-split-item--peligro' : ''}`}
-                  onClick={() => elegir(a)}
-                >
-                  <Icon name={a.icono} size={16} color="currentColor" />
-                  <span className="spira-split-tx">
-                    {a.titulo}
-                    {a.bajada && <span className="spira-split-sub">{a.bajada}</span>}
-                  </span>
-                  {a.aparte && <span className="spira-split-aparte">{a.aparte}</span>}
-                </button>
-              )
-              if (a.clave !== 'eliminar') return <Fragment key={a.clave}>{item}</Fragment>
-              return (
-                <Fragment key={a.clave}>
-                  <div className="spira-split-sep" role="separator" />
-                  {confirmandoBorrar ? (
-                    <div className="spira-split-confirma" role="group" aria-label="Confirmar la eliminación">
-                      <p>
-                        ¿Eliminar la visita {rotuloVisita}?
-                        <span>Se borra con sus registros. No se puede deshacer.</span>
-                      </p>
-                      <div className="spira-split-fila">
-                        <button type="button" className="spira-split-btn spira-no-press" onClick={() => setConfirmandoBorrar(false)}>Cancelar</button>
-                        <button
-                          type="button"
-                          data-borrar
-                          className="spira-split-btn spira-split-btn--peligro spira-no-press"
-                          onClick={() => { volverALaFlecha(); onAccion('eliminar') }}
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </div>
-                  ) : item}
-                </Fragment>
-              )
-            })}
+            {acciones.map((a) => (
+              <Fragment key={a.clave}>
+                {a.clave === 'eliminar' && <div className="spira-split-sep" role="separator" />}
+                {confirmando === a.clave ? confirmacionDe(a) : itemDe(a)}
+              </Fragment>
+            ))}
           </div>
         ),
         document.body,

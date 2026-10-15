@@ -6,6 +6,7 @@ import { visitCode, visitTitle } from '../../lib/visits'
 import type { VisitTitleFields } from '../../lib/visits'
 import { OPERATIONAL_STAGES } from '../visitStates'
 import { DIAS_DEL_RETEST } from './retomar'
+import { fechaFijaParaCargar } from './vinoOtroDia'
 
 /**
  * ┌─ Qué ofrece el menú del botón de etapa, y por qué algo está apagado ─────────────────────────┐
@@ -15,7 +16,8 @@ import { DIAS_DEL_RETEST } from './retomar'
  *
  *   1  Volver a <etapa>       (en Completa: Pedir retest)
  *   2  Reprogramar
- *   3  Vino otro día…                   ← sólo Por llegar (0158, plan docs/plan-visita-cargada-otro-dia.md)
+ *   3  Vino otro día…                   ← Por llegar, o Concurrió con la llegada de otro día (0158, 0160;
+ *                                         plan docs/plan-visita-cargada-otro-dia.md)
  *   4  Marcar / deshacer «no vino»     ← sólo Por llegar (vivía en el ⋮ de la fila)
  *   5  Copiar ID de paciente
  *   ─────
@@ -23,17 +25,20 @@ import { DIAS_DEL_RETEST } from './retomar'
  *
  * Una acción que existe pero ahora no se puede va APAGADA y con el porqué en la bajada («Es la primera
  * etapa», «Ya concurrió al centro»): informa más que esconderla, y el menú no cambia de largo entre
- * visitas. Sólo «vino otro día» y «no vino» aparecen y desaparecen, porque fuera de Por llegar no son
- * acciones que existan: las dos hablan de si el paciente vino.
+ * visitas. Sólo «vino otro día» y «no vino» aparecen y desaparecen, porque fuera de su etapa no son
+ * acciones que existan: las dos hablan de si el paciente vino, y una visita ya fechada lo dice sola.
+ *
+ * Una acción que se puede pero conviene pensar dos veces lleva `confirmar`: elegirla abre la pregunta en
+ * el lugar del ítem, como Eliminar. Hoy, «Volver» sobre una marca de otro día (0160).
  *
  * VIVE ACÁ, PURO Y CON TEST, porque es lo que puede quedar al revés sin verse: un «Volver a Concurrió»
  * sobre una visita que nunca registró la llegada se ve perfecto y miente sobre a dónde va. Y lo usan la
  * fila de Visitas y el modal: si cada uno decidiera por su lado, dirían cosas distintas de la misma
  * visita (el motivo de `visitPermissions.ts`).
  *
- * Los permisos y el «sólo en el día» ESPEJAN la base (0155 y anteriores) para no ofrecer lo que va a
- * rebotar; la base sigue siendo la que manda. Las guardas que la pantalla no puede ver —procedimientos
- * realizados, dispensación, IP, continuación o retest— las dice la base con su mensaje al intentarlo.
+ * Los permisos ESPEJAN la base (0155 y anteriores) para no ofrecer lo que va a rebotar; la base sigue
+ * siendo la que manda. Las guardas que la pantalla no puede ver —procedimientos realizados, dispensación,
+ * IP, continuación o retest— las dice la base con su mensaje al intentarlo.
  * └──────────────────────────────────────────────────────────────────────────────────────────────┘
  */
 
@@ -51,6 +56,11 @@ export interface AccionDeVisita {
   habilitada: boolean
   /** Rojo y separado: sólo Eliminar. */
   peligro?: boolean
+  /**
+   * Elegirla no ejecuta: abre esta pregunta en el lugar del ítem, y el botón que confirma lleva el
+   * `titulo`. Eliminar confirma siempre y arma su texto en `BotonEtapa` (necesita el nombre de la visita).
+   */
+  confirmar?: { pregunta: string; detalle: string }
 }
 
 /** Lo mínimo de la fila que deciden las reglas (el test arma casos chicos, no un `DayVisitRow` entero). */
@@ -97,28 +107,34 @@ function itemVolver(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): Ac
   if (deshaceLlegada ? !p.recepcion : !p.coordina) {
     return { clave: 'volver', titulo, bajada: deshaceLlegada ? 'Sólo Recepción deshace la llegada' : 'Sólo quien coordina el estudio', icono: 'undo', habilitada: false }
   }
-  /* SÓLO LA MARCA DE HOY (0155): volver atrás corrige un clic equivocado, no reescribe la historia —
-     deshacer el inicio de una visita vieja borraría su fecha realizada y le volvería a encender la
-     ventana vencida—. La llegada se mide por `arrived_at`; el inicio, por su sello `attended_at` o, si
-     se cargó en otra fecha, por el momento de la carga (0158: esa visita no tiene sello, la hora no se
-     sabe). Un inicio sin ninguno de los dos es anterior a la 0102 y tampoco se deshace desde acá. */
-  const cargadaHoy = !deshaceLlegada && !v.attended_at && !!v.cargada_en_otra_fecha_at
-  const marca = deshaceLlegada ? v.arrived_at : (v.attended_at ?? v.cargada_en_otra_fecha_at)
-  if (!marca || isoDayAR(marca) !== hoy) {
-    const dia = marca ? isoDayAR(marca) : v.real_date
-    return { clave: 'volver', titulo, bajada: dia ? `Se registró el ${formatDayMonth(dia)}: sólo se deshace en el día` : 'Sólo se deshace en el día', icono: 'undo', habilitada: false }
-  }
   // Volver a Por llegar con el médico de por medio dejaría un pedido (o una atención) de alguien que
   // según la pantalla nunca llegó. La base lo rechaza igual; acá se dice antes de intentarlo.
   if (destino === 'por_llegar' && (v.wants_doctor || v.doctor_seen_at)) {
     return { clave: 'volver', titulo, bajada: v.doctor_seen_at ? 'Ya lo atendió el médico' : 'Tiene atención médica pedida', icono: 'undo', habilitada: false }
   }
-  // Qué se borra, con la hora del registro. Una carga en otra fecha no tiene hora de inicio: se nombra
-  // por el día que dice la visita, que es lo que se deshace.
-  const bajada = deshaceLlegada ? `Borra la llegada de las ${formatTimeAR(marca)}`
-    : cargadaHoy && v.real_date ? `Deshace la carga del ${formatDayMonth(v.real_date)}`
-    : `Borra el inicio de atención de las ${formatTimeAR(marca)}`
-  return { clave: 'volver', titulo, bajada, icono: 'undo', habilitada: true }
+  /* La marca que se deshace: la llegada, por `arrived_at`; el inicio, por su sello `attended_at` o, si se
+     cargó en otra fecha, por el momento de la carga (0158: esa visita no tiene sello, la hora no se sabe). */
+  const cargada = !deshaceLlegada && !v.attended_at && !!v.cargada_en_otra_fecha_at
+  const marca = deshaceLlegada ? v.arrived_at : (v.attended_at ?? v.cargada_en_otra_fecha_at)
+  // La marca de HOY corrige un clic equivocado: directo, con la hora del registro (0155).
+  if (marca && isoDayAR(marca) === hoy) {
+    const bajada = deshaceLlegada ? `Borra la llegada de las ${formatTimeAR(marca)}`
+      : cargada && v.real_date ? `Deshace la carga del ${formatDayMonth(v.real_date)}`
+      : `Borra el inicio de atención de las ${formatTimeAR(marca)}`
+    return { clave: 'volver', titulo, bajada, icono: 'undo', habilitada: true }
+  }
+  /* La de OTRO día —o un inicio sin sello ni carga, anterior a la 0102— también, pero CONFIRMANDO (0160;
+     el Director: «que tire aviso y todo pero que te deje»). Hasta la 0160 no se podía: deshacer el inicio
+     de una visita vieja le borra la fecha realizada y vuelve a contar como no hecha. La confirmación dice
+     qué se borra y de qué día; la bajada nombra el día, no una hora que no es de hoy. */
+  const dia = deshaceLlegada ? (v.arrived_at ? isoDayAR(v.arrived_at) : null) : v.real_date
+  const delDia = dia ? ` del ${formatDayMonth(dia)}` : ''
+  const bajada = deshaceLlegada ? `Borra la llegada${delDia}`
+    : cargada ? `Deshace la carga${delDia}`
+    : `Borra el inicio de atención${delDia}`
+  const detalle = deshaceLlegada ? `No es de hoy: se borra la llegada${delDia}.`
+    : `No es de hoy: se borra la fecha realizada${dia ? ` (${formatDayMonth(dia)})` : ''}.`
+  return { clave: 'volver', titulo, bajada, icono: 'undo', habilitada: true, confirmar: { pregunta: `¿${titulo}?`, detalle } }
 }
 
 /**
@@ -127,11 +143,14 @@ function itemVolver(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): Ac
  * sin «no vino» (la base lo limpia en el mismo paso: vino). El permiso es el de fechar la visita: quien
  * coordina el estudio o gerencia (`coordina`, el de la base); Recepción no.
  */
-function itemVinoOtroDia(v: VisitaParaAcciones, p: PermisosDeVisita): AccionDeVisita | null {
-  if (v.operational_stage !== 'por_llegar') return null
+function itemVinoOtroDia(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): AccionDeVisita | null {
+  // 0160: también en Concurrió con la llegada de otro día, y entonces con la fecha de esa llegada.
+  const llego = fechaFijaParaCargar(v, hoy)
+  if (v.operational_stage !== 'por_llegar' && !llego) return null
   const base = { clave: 'vino-otro-dia' as const, titulo: 'Vino otro día…', icono: 'history' as const }
   if (!p.coordina) return { ...base, bajada: 'Lo carga quien coordina el estudio', habilitada: false }
-  return { ...base, bajada: 'Cargarla con la fecha en que vino', habilitada: true }
+  const bajada = llego ? `Llegó el ${formatDayMonth(llego)}: cargarla con esa fecha` : 'Cargarla con la fecha en que vino'
+  return { ...base, bajada, habilitada: true }
 }
 
 /**
@@ -195,7 +214,7 @@ function itemEliminar(v: VisitaParaAcciones, p: PermisosDeVisita): AccionDeVisit
 /** Las acciones del menú, en orden. `hoy` = `todayISO()` (parámetro para que el test no dependa del día). */
 export function accionesDeVisita(v: VisitaParaAcciones, p: PermisosDeVisita, hoy: string): AccionDeVisita[] {
   const primera = v.operational_stage === 'fin_atencion' ? itemRetest(v, p, hoy) : itemVolver(v, p, hoy)
-  const otroDia = itemVinoOtroDia(v, p)
+  const otroDia = itemVinoOtroDia(v, p, hoy)
   const noVino = itemNoVino(v, p)
   return [
     primera,

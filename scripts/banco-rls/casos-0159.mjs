@@ -8,7 +8,8 @@
 import { crearBase, comoPerfil } from './base.mjs'
 import { sembrar, PERFILES as P } from './sembrar.mjs'
 
-const db = await crearBase()
+// Hasta la 0159 inclusive: la 0159 tal como se escribió: la 0160 re-declara la función (ver casos-0160.mjs).
+const db = await crearBase({ hasta: 159 })
 await sembrar(db)
 const q = async (sql) => (await db.query(sql)).rows
 const HOY = `((now() at time zone 'America/Argentina/Buenos_Aires')::date)`

@@ -9,7 +9,8 @@
 import { crearBase, comoPerfil } from './base.mjs'
 import { sembrar, PERFILES as P } from './sembrar.mjs'
 
-const db = await crearBase()
+// Hasta la 0158 inclusive: la 0158 tal como se escribió: la 0160 sacó el «sólo el mismo día» y deja cargar desde Concurrió (ver casos-0160.mjs).
+const db = await crearBase({ hasta: 158 })
 await sembrar(db)
 const q = async (sql) => (await db.query(sql)).rows
 const HOY = `((now() at time zone 'America/Argentina/Buenos_Aires')::date)`

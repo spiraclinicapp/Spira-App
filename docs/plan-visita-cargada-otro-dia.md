@@ -387,6 +387,34 @@ Resuelve lo observado en el QA.
   de gerencia.
 - **Orden:** la 0159 primero (aditiva), después el front.
 
+## Después · la 0160: volver una marca de otro día, y «Vino otro día» desde Concurrió
+
+**Pedido del Director (2026-10-14, noche)**, sobre una visita real (V2 W4) que llegó el 10 y quedó en «Concurrió»
+con «Volver a Por llegar» apagado («Se registró el 10 oct: sólo se deshace en el día»): «¿La opción de hacer la
+visita otro día? Y que el volver a por llegar tire aviso y todo pero que te deje». **Da vuelta la decisión 84**
+del handoff del 14 («Volver» sólo la marca de hoy).
+
+- **Base (0160):** dos funciones re-declaradas con la misma firma, las dos aceptan más casos.
+  - `retroceder_etapa_visita` sin el bloque «sólo el mismo día». Quedan las guardas (procedimientos, pendientes,
+    continuación, retest, dispensación, IP, médico), los permisos, el `p_desde` y que una completa no vuelve.
+  - `registrar_visita_en_otra_fecha` acepta también una visita en Concurrió con la llegada de **otro** día. La
+    fecha tiene que ser la del día de la llegada («Llegó el …» si no), y la llegada queda. Si llegó hoy, rechaza:
+    para eso está «Iniciar atención».
+  - Banco: `casos-0160.mjs` 27/27; contra la base sin la 0160 fallan justo los 15 casos nuevos. `casos-0158` y
+    `casos-0159` quedan fijados a su migración (38/38 y 6/6). Equivalencia sin diferencias.
+- **Front:**
+  - «Volver» sobre una marca de otro día queda habilitado y **confirma en el lugar del ítem**, como Eliminar:
+    «¿Volver a Por llegar?» · «No es de hoy: se borra la llegada del 10 oct.» (desde En atención: «se borra la
+    fecha realizada (10 oct)»). La marca de hoy sigue directa, con la hora. `AccionDeVisita.confirmar` y la
+    confirmación genérica de `BotonEtapa`.
+  - «Vino otro día…» aparece en Concurrió si la llegada fue otro día, con la bajada «Llegó el 10 oct: cargarla
+    con esa fecha». El modal no muestra el selector: dice el día (`fechaFijaParaCargar`, con test).
+- **Por qué la fecha fija:** el paciente vino ese día. Otra fecha dejaría «llegó el 10, atendida el 8», o la
+  visita en dos días de la lista (el de la llegada y el de la fecha).
+- **Orden:** aditiva, la 0160 primero. **Aplicada en prod el 2026-10-14**, antes de abrir la PR del front.
+- **Queda igual, a propósito:** «Iniciar atención» sobre una visita que llegó otro día sigue sellando la hora de
+  hoy (`start_visit_attention`). La salida honesta para ese caso es «Vino otro día…».
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
