@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.113', text: 'Visitas carga una visita olvidada en su día, sin duplicarla, y el tutorial de dispensar estrena voz.' },
     { version: '0.112', text: 'Tutoriales en video en la Ayuda, y Visitas deja volver a la etapa anterior y adelantar la llegada.' },
     { version: '0.111', text: 'Próximas visitas lleva a la semana en Visitas, que ya no muestra citado a quien llegó otro día.' },
     { version: '0.110', text: 'Visitas aprovecha todo el ancho; el Resumen cuenta los próximos 7 días y quién está en el centro.' },
