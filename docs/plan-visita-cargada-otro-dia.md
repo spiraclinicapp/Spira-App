@@ -372,6 +372,21 @@ Implementación secuencial. Todo cuelga de la 0158 y de `marcaTardia`, y casi to
     puede elegirse a sí misma si no coordina el estudio. Es la regla de la 0158 (quién la atendió tiene que
     coordinar el estudio).
 
+## Después · la 0159: gerencia también puede figurar como quien atendió
+
+**Decisión del Director (2026-10-14):** «Gerencia puede hacer todo lo que pueden hacer los roles inferiores.»
+Resuelve lo observado en el QA.
+
+- **Base (0159):** `registrar_visita_en_otra_fecha` re-declarada. `p_atendio` vale si coordina el estudio **o** tiene
+  el módulo `gerencia`. Banco: `casos-0159.mjs` 6/6, `casos-0158.mjs` 38/38, equivalencia sin diferencias.
+- **Front:** `quienesPudieronAtenderla` (`vinoOtroDia.ts`, con test) ofrece los coordinadores del estudio y, si
+  quien carga es de gerencia, también a esa persona, con «De gerencia» en la opción. En un estudio sin
+  coordinadores queda propuesta sola, porque es la única opción.
+- **Límite, a propósito:** se ofrece sólo a quien carga, no a toda gerencia. La lista de usuarios no se lee
+  entera desde el cliente, y el caso real es que quien carga sea quien la atendió. La base acepta a cualquiera
+  de gerencia.
+- **Orden:** la 0159 primero (aditiva), después el front.
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
