@@ -1,4 +1,50 @@
 {
+  "conocer-farmacia": {
+    "version": "3403dd96",
+    "duracionMs": 63960,
+    "capitulos": [
+      {
+        "inicioMs": 0,
+        "titulo": "El módulo"
+      },
+      {
+        "inicioMs": 6456,
+        "titulo": "Estudios y pacientes"
+      },
+      {
+        "inicioMs": 14263,
+        "titulo": "Recepción"
+      },
+      {
+        "inicioMs": 19741,
+        "titulo": "Stock"
+      },
+      {
+        "inicioMs": 32691,
+        "titulo": "Dispensaciones"
+      },
+      {
+        "inicioMs": 45268,
+        "titulo": "Reposición"
+      },
+      {
+        "inicioMs": 51481,
+        "titulo": "Estadísticas"
+      }
+    ],
+    "transcripcion": [
+      "Este es el módulo de Farmacia. A la izquierda están sus pantallas, en el orden en que la medicación recorre la farmacia.",
+      "En Estudios y pacientes ves los estudios y quiénes participan en cada uno. Con el buscador encontrás a cualquiera por su nombre.",
+      "Recepción es lo que entra: acá se registra cada envío de medicación que llega al centro.",
+      "Stock es lo que hay. Tiene tres partes: la medicación de los estudios, la farmacia ambulatoria y el catálogo de todos los medicamentos.",
+      "Adentro ves cada medicamento con su lote, cuándo vence y cuántas unidades quedan.",
+      "Dispensaciones es lo que sale. Cada pedido avanza por cuatro columnas: Solicitadas, Preparando, Listas y Entregadas.",
+      "Cómo se prepara y se entrega un pedido lo explica el tutorial «Dispensar una medicación».",
+      "En Reposición armás el pedido de medicación de cada estudio: Spira calcula cuánto hace falta pedir.",
+      "Y en Estadísticas están los números del período, por estudio y por medicamento. Desde cada parte se imprime su reporte.",
+      "Si una pantalla tiene un tutorial, al lado del título vas a ver el botón «Cómo se hace»."
+    ]
+  },
   "dispensar": {
     "version": "b159b215",
     "duracionMs": 43080,
@@ -33,6 +79,38 @@
       "Con todo escaneado, pulsá el botón «Marcar lista para retirar». Spira genera el comprobante, asigna el lote que vence primero y descuenta el stock.",
       "Cuando se retira la medicación, pulsá el botón «Marcar como entregado».",
       "Listo: la dispensación queda en Entregadas, con su comprobante."
+    ]
+  },
+  "nueva-dispensacion": {
+    "version": "8a3a3a35",
+    "duracionMs": 51040,
+    "capitulos": [
+      {
+        "inicioMs": 0,
+        "titulo": "Nueva dispensación"
+      },
+      {
+        "inicioMs": 17741,
+        "titulo": "Paciente y visita"
+      },
+      {
+        "inicioMs": 29117,
+        "titulo": "Medicación"
+      },
+      {
+        "inicioMs": 36587,
+        "titulo": "Crear y preparar"
+      }
+    ],
+    "transcripcion": [
+      "Si un paciente necesita medicación y Coordinación no la pidió, la dispensación la podés cargar vos.",
+      "En Dispensaciones, pulsá el botón «Nueva dispensación», arriba a la derecha.",
+      "Arriba elegís el tipo: «De protocolo», para un paciente de un estudio, o «Ambulatoria», para alguien que no lo es.",
+      "Elegí al paciente de la lista.",
+      "Después, la visita en la que se entrega. Si vino sin turno, pulsá el botón «Registrar una visita no programada de hoy»: queda elegida.",
+      "Elegí el medicamento: sólo aparece el que el paciente tiene habilitado. Poné la cantidad y pulsá el botón «Agregar».",
+      "Pulsá el botón «Crear y preparar». La dispensación pasa directo a Preparando, sin esperar en Solicitadas.",
+      "Desde acá se sigue igual que un pedido de Coordinación: escaneás cada unidad, la marcás lista para retirar y la entregás."
     ]
   }
 }
