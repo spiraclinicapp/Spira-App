@@ -1,34 +1,34 @@
 {
   "conocer-farmacia": {
-    "version": "3403dd96",
-    "duracionMs": 63960,
+    "version": "c18270ba",
+    "duracionMs": 65560,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "El módulo"
       },
       {
-        "inicioMs": 6456,
+        "inicioMs": 6635,
         "titulo": "Estudios y pacientes"
       },
       {
-        "inicioMs": 14263,
+        "inicioMs": 14210,
         "titulo": "Recepción"
       },
       {
-        "inicioMs": 19741,
+        "inicioMs": 19552,
         "titulo": "Stock"
       },
       {
-        "inicioMs": 32691,
+        "inicioMs": 32817,
         "titulo": "Dispensaciones"
       },
       {
-        "inicioMs": 45268,
+        "inicioMs": 45577,
         "titulo": "Reposición"
       },
       {
-        "inicioMs": 51481,
+        "inicioMs": 52161,
         "titulo": "Estadísticas"
       }
     ],

@@ -17,7 +17,9 @@ export interface Paso {
   hace?: (e: Escena) => Promise<void>
   /** Si está, este paso abre un capítulo del reproductor con ese título. */
   capitulo?: string
-  /** El cuadro de este paso es el póster del video (si ninguno lo marca, se usa el del primer paso). */
+  /** El cuadro de este paso es el póster del video (si ninguno lo marca, se usa el del primer paso). Se toma a
+   *  0,8 s del inicio del paso: NO lo marques en uno que navega (`irA`), porque a esa altura la página todavía
+   *  está en blanco. Pasó con «Conocé Farmacia» (2026-10-14): llegó a prod con un póster blanco. */
   poster?: boolean
 }
 

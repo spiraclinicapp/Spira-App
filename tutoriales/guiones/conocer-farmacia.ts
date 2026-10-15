@@ -33,12 +33,13 @@ export default guion('conocer-farmacia', {
         await e.moverA(pantalla(e, 'Recepción'))
       },
       capitulo: 'El módulo',
-      poster: true,
     },
     {
       dice: 'En Estudios y pacientes ves los estudios y quiénes participan en cada uno. Con el buscador encontrás a cualquiera por su nombre.',
       hace: async (e) => { await e.moverA(e.page.getByRole('textbox', { name: 'Buscar protocolos o pacientes' })) },
       capitulo: 'Estudios y pacientes',
+      /* El póster va acá: la pantalla ya cargó. En el primer paso, a 0,8 s, todavía estaba en blanco. */
+      poster: true,
     },
     {
       dice: 'Recepción es lo que entra: acá se registra cada envío de medicación que llega al centro.',
