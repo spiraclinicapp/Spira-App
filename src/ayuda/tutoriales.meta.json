@@ -1,4 +1,87 @@
 {
+  "atender-visita": {
+    "version": "1b16d50a",
+    "duracionMs": 32720,
+    "capitulos": [
+      {
+        "inicioMs": 0,
+        "titulo": "Visitas de hoy"
+      },
+      {
+        "inicioMs": 7335,
+        "titulo": "La llegada"
+      },
+      {
+        "inicioMs": 12905,
+        "titulo": "La atención"
+      },
+      {
+        "inicioMs": 19264,
+        "titulo": "El fin"
+      }
+    ],
+    "transcripcion": [
+      "En Visitas ves a los pacientes citados para hoy. Cada fila muestra el paciente, su estudio y en qué etapa está la visita.",
+      "Cuando el paciente llega, pulsá el botón «Marcar llegada». Queda registrada la hora.",
+      "Al lado del nombre aparece la hora de llegada. Cuando empieza la atención, pulsá el botón «Iniciar atención».",
+      "Al terminar, pulsá el botón «Fin de atención». Si quedaron procedimientos sin marcar, Spira te avisa antes de cerrarla.",
+      "Listo: la visita queda en Finalizadas. Si pulsás la fila, se abre el detalle de la visita."
+    ]
+  },
+  "conocer-coordinacion": {
+    "version": "f249d4a1",
+    "duracionMs": 58600,
+    "capitulos": [
+      {
+        "inicioMs": 0,
+        "titulo": "El módulo"
+      },
+      {
+        "inicioMs": 4308,
+        "titulo": "Resumen"
+      },
+      {
+        "inicioMs": 13457,
+        "titulo": "Estudios y pacientes"
+      },
+      {
+        "inicioMs": 18376,
+        "titulo": "Visitas"
+      },
+      {
+        "inicioMs": 25761,
+        "titulo": "Para ver médico"
+      },
+      {
+        "inicioMs": 30441,
+        "titulo": "Pendientes"
+      },
+      {
+        "inicioMs": 38605,
+        "titulo": "Reportes"
+      },
+      {
+        "inicioMs": 43433,
+        "titulo": "Tareas"
+      },
+      {
+        "inicioMs": 47376,
+        "titulo": "Estadísticas"
+      }
+    ],
+    "transcripcion": [
+      "Este es el módulo de Coordinación. A la izquierda están sus pantallas.",
+      "El Resumen muestra cómo viene el día: las visitas de hoy, los atrasados y las próximas visitas. Cada tarjeta te lleva a su pantalla.",
+      "En Estudios y pacientes están los estudios del centro. Entrando a uno ves sus pacientes.",
+      "Visitas es el día de trabajo: los pacientes citados, cada uno con su etapa. Arriba lo cambiás a Semana o a Mes.",
+      "Para ver médico es la cola de los pacientes que están en el centro y esperan al médico.",
+      "En Pendientes está lo que hay que resolver: ventanas vencidas, visitas por reprogramar, reportes sin hacer, entre otras cosas.",
+      "Reportes junta los reportes pendientes de cada paciente, visita por visita.",
+      "Tareas es tu lista personal: lo que anotaste para no olvidarte.",
+      "Y Estadísticas, que ven los Líderes y gerencia, muestra los números del período por estudio.",
+      "Si una pantalla tiene un tutorial, al lado del título vas a ver el botón «Cómo se hace»."
+    ]
+  },
   "conocer-farmacia": {
     "version": "c18270ba",
     "duracionMs": 65560,
