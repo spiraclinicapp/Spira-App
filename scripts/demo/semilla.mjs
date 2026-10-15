@@ -339,6 +339,18 @@ export async function sembrar(db, { log = console.log, hoy = hoyEnAR() } = {}) {
       [visitas.P2.v2, JSON.stringify([{ medication_id: medicamento, quantity: 2 }]), 'Día 1 · randomización'])
   })
 
+  // 10 · Reposición lista para mostrar, como la deja Farmacia la primera vez: el día de corte (`guardarDiaCorte`,
+  //      update directo) y cómo se repone el Bufomix (`configurarReposicion`: un envase por paciente por mes).
+  //      Sin esto, Reposición es sólo «Falta el día de corte» o «Falta cargar cómo se repone», y el recorrido de
+  //      Farmacia (tutorial `conocer-farmacia`) no tiene ninguna cuenta para mostrar.
+  await paso(db, c.farma, 'reposición', async (q) => {
+    una(await q('update public.farmacia_ajustes set dia_corte = 20 where unica returning id'), 'farmacia_ajustes')
+    const { id: asignacion } = una(await q(
+      'select id from public.protocol_medications where protocol_id = $1::uuid and medication_id = $2::uuid',
+      [protocolo, medicamento]), 'protocol_medications')
+    await q("select public.configurar_reposicion($1::uuid, 'mensual', 1, null)", [asignacion])
+  })
+
   log(`✓ Semilla: ${ESTUDIO.code} con ${CRONOGRAMA.length} visitas en el cronograma, ${pacientes.length} pacientes, ${MEDICACION.cantidad} ${MEDICACION.nombre} en stock y un pedido pendiente.`)
   return { cuentas: c, protocolo, pacientes: visitas }
 }

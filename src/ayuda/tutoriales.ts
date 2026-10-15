@@ -31,6 +31,16 @@ export interface Tutorial {
 /** En el orden en que se listan dentro de cada módulo (el de un curso). */
 export const TUTORIALES: readonly Tutorial[] = [
   {
+    /* El primero del curso: qué es cada pantalla. Se ofrece en la que se abre al entrar a Farmacia. */
+    id: 'conocer-farmacia',
+    modulo: 'pharma',
+    vista: 'pharma/protocolos',
+    titulo: 'Conocé Farmacia',
+    resumen: 'Para qué sirve cada pantalla del módulo',
+    descripcion:
+      'Un recorrido por las pantallas de Farmacia: lo que entra, lo que hay, lo que sale, lo que hay que pedir y los números del período.',
+  },
+  {
     id: 'dispensar',
     modulo: 'pharma',
     vista: 'pharma/dispensaciones',
@@ -38,5 +48,15 @@ export const TUTORIALES: readonly Tutorial[] = [
     resumen: 'Preparar el pedido y entregarlo',
     descripcion:
       'Tomás el pedido de Solicitadas, escaneás cada unidad y lo marcás listo para retirar: Spira asigna el lote y descuenta el stock.',
+  },
+  {
+    /* Sin `vista`: Dispensaciones ya ofrece «Dispensar una medicación» y la píldora es una por pantalla. Se llega
+       desde el panel de Ayuda y desde la pregunta «¿Puedo dispensar sin un pedido de Coordinación?». */
+    id: 'nueva-dispensacion',
+    modulo: 'pharma',
+    titulo: 'Dispensar sin un pedido',
+    resumen: 'Cargar la dispensación desde Farmacia',
+    descripcion:
+      'Cuando Coordinación no la pidió: elegís al paciente, la visita y la medicación, y la dispensación pasa directo a Preparando.',
   },
 ]
