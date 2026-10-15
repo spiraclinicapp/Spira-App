@@ -353,9 +353,24 @@ Implementación secuencial. Todo cuelga de la 0158 y de `marcaTardia`, y casi to
   `vino-otro-dia`; el menú, en el orden del plan. El modal propone la citación (08/10/2026) y no deja cargar sin
   quién la atendió. **Corregido en el camino:** con la lectura de coordinadores fallida decía «El estudio no
   tiene coordinadores» y mostraba el error crudo de Postgres.
-- [ ] **QA con sesión, después de aplicar la 0158** — cargar una visita de TEST-001 con «Vino otro día» (la
-  lista salta al día, el listón dice «cargada el …», «Volver» la deshace el mismo día) y mirar la lista del 08 y
-  del 14 con la visita de Rafael.
+- [x] **QA con sesión contra prod, con la 0158 aplicada (2026-10-14, el Director logueado)**
+  - **Rafael (sólo lectura):** está el 08/10 y no el 14/10. Sin «llegó» tardío, sin el gris. El modal dice
+    «Fin de atención · cargada el 14 oct».
+  - **TEST-001, VNP citada el 29/09:** «Marcar llegada» → «¿Vino el 29 sep? Cargala con esa fecha» → el modal
+    propone el 29/09. **TEST-QA no tenía coordinadores**, así que el modal no dejaba cargar (correcto). Con el
+    visto bueno del Director se lo asignó temporalmente (`set_protocol_access`). Cargada el 30/09:
+    - la lista saltó al 30;
+    - el aviso dijo «Visita cargada el 30 sep. Falta finalizarla.»;
+    - la base quedó con `real_date` 2026-09-30, `attended_at` vacío y a nombre de quien la atendió;
+    - la visita sólo aparece el 30, ni el 29 ni hoy;
+    - el listón dice «Inicio de atención · cargada el 14 oct»;
+    - «Atención médica» sale apagada («La visita es del 30 sep») en la fila y en el modal.
+  - **«Volver a Por llegar · Deshace la carga del 30 sep»:** la dejó por llegar con su cita intacta. Después se
+    devolvió el coordinador de la visita (vacío) y se sacó al Director de TEST-QA: todo como estaba.
+  - **Red:** 57 pedidos a la API sin un fallo.
+  - **Observado para decidir:** en un estudio SIN coordinadores «Vino otro día» no se puede usar, y gerencia no
+    puede elegirse a sí misma si no coordina el estudio. Es la regla de la 0158 (quién la atendió tiene que
+    coordinar el estudio).
 
 ## GSTACK REVIEW REPORT
 
