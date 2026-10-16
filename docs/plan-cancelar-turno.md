@@ -694,21 +694,22 @@ es la que ya estaba escrita en el plan. Se dejan las alternativas a la vista par
     --control` sin diferencias de permisos (2028 comparaciones, control 12/12; 10 fotos distintas con las mismas
     filas: las columnas nuevas de `patient_visits` y `v_track_visits`); 14 marcadores de dollar-quote, todos en par;
     `check-migraciones` al día. `sembrar.mjs` no inventa turnos cancelados (el CHECK los rechazaría).
-- [ ] **T2 (P1, humano ~1,5 h / CC ~15 min)** — reglas — `turnoCancelado`, `fechaParaOrdenar`, `effectiveDate`
+- [x] **T2 (P1, humano ~1,5 h / CC ~15 min)** — reglas — `turnoCancelado`, `fechaParaOrdenar`, `effectiveDate`
   exportada (`PdVisitFlow` deja su `eff()`), `todaySplit`, `currentVisit`, `ventanaAbierta`, `visitStateLabel`
   (`lib/visits.ts`); `COLUMNAS_FILA_PACIENTE` y `PdPatientRow`; `esNoVino` (`calendario.ts`) + tests
-- [ ] **T3 (P1, humano ~3 h / CC ~20 min)** — acción — `itemCancelarTurno` y el estado cancelado en
+- [x] **T3 (P1, humano ~3 h / CC ~20 min)** — acción — `itemCancelarTurno` y el estado cancelado en
   `accionesDeVisita.ts` (+ cabecera) + test; `noConfirmar` en `BotonEtapa`; `cancelarTurno` y el helper del 23514 en
   `data/dayVisits.ts`; el `case` en `useAccionesDeVisita`; `calendarX` en `Icon.tsx`; permiso `coordina` para
   Reprogramar (fila y menú)
-- [ ] **T4 (P1, humano ~2 h / CC ~15 min)** — salidas — `RescheduleModal` propone la fecha vieja y no guarda sin
+- [x] **T4 (P1, humano ~2 h / CC ~15 min)** — salidas — `RescheduleModal` propone la fecha vieja y no guarda sin
   fecha (puras + test); `visitasParaTraer` / `marcaDePendiente` y `opciones.ts` (la ficha) + tests; el encabezado
   («Sin turno»); la cara «Reprogramar» y el listón del modal
-- [ ] **T5 (P1, humano ~3 h / CC ~25 min)** — rótulos — `motivoDeAlertaDeVisita` (arregla el bug de Pendientes),
+- [x] **T5 (P1, humano ~3 h / CC ~25 min)** — rótulos — `motivoDeAlertaDeVisita` (arregla el bug de Pendientes),
   `refDate` y la ventana en el renglón + «Agendar» en «por reprogramar»; `anclaDeLaVisita` / `isVisitAlertDismissed`;
   tarjetas por protocolo; campana (rótulo, fecha, clave, `propia`); ficha (alertas y «Próxima visita»); glosario;
   cronograma («Sin turno», sin verde); `enPeriodo` y `VisitaEstadistica`; «Nueva dispensación» y «Pedir medicación»
   sin turno + tests
+- *T2–T5 hechas el 2026-10-16 (commit «feat(visitas): Cancelar turno…»): `npm run build` verde, 2202 tests (siete archivos de test nuevos o ampliados). Lo que quedó distinto del plan: el permiso de la cara «Reprogramar» de la fila también pasó a `coordina`; «Pedir medicación» con el turno cancelado se resuelve dejando el panel de dispensación en solo lectura.*
 - [ ] **T6 (P1)** — verificación — `npm run build` verde + preview (banco sin sesión) + QA con sesión sobre TEST-001
   (protocolo TEST-QA), con la 0161 aplicada y su sonda en verde. Lo creado en el QA, borrado al final.
 - [ ] **T7 (P3)** — docs — `TODOS.md`: `sync_protocol_schedule` deshace los «Reprogramar»; Reposición con el turno
