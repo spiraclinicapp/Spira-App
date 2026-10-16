@@ -11,7 +11,7 @@ import { useTreatingPhysicians } from '../../data/patients'
 import { setEstimatedDate, setRealDate } from '../../data/visits'
 import { deviationReasonLabel, useDeviations } from '../../data/deviations'
 import { formatAR } from '../../lib/dates'
-import { desvioDias, fueraDeVentana, visitCode, visitTitle } from '../../lib/visits'
+import { desvioDias, fueraDeVentana, turnoCancelado, visitCode, visitTitle } from '../../lib/visits'
 import { VisitDateInline } from './VisitDateInline'
 import {
   datosDelPaciente, estimadaNoAplica, fechaSegunProtocolo, medicoDeVisita, muestraFechaReal,
@@ -197,6 +197,9 @@ export function VisitHeader({
               label={atendida ? 'Fecha realizada' : 'Fecha programada'}
               value={atendida ? visit.real_date : visit.estimated_date}
               editable={!readOnly}
+              /* Un turno cancelado (0161) no tiene fecha programada: lo dice, en vez de un «—» mudo. Escribir
+                 una fecha acá la REPROGRAMA: el trigger de la 0161 limpia el sello al volver a tener fecha. */
+              placeholder={turnoCancelado(visit) ? 'Sin turno' : undefined}
               /* SIN HORA AL LADO DE LA FECHA (Director, 2026-09-16). Acá vivía el sello de la
                  0102: la hora en que se apretó "Iniciar atención". Se leía como si fuera la hora
                  en que la visita se realizó, y abajo la barra dice "Fin de atención" con otra
@@ -206,7 +209,8 @@ export function VisitHeader({
               /* Atendida, la citación deja de estar en pantalla — es la contra de fundir los dos
                  campos en uno. Vive acá para no perderse: es el dato que EXPLICA un desvío ("vino
                  el día que lo citamos; lo corrido era la cita"). */
-              title={atendida && visit.estimated_date ? `Programada para el ${formatAR(visit.estimated_date)}` : undefined}
+              title={atendida && visit.estimated_date ? `Programada para el ${formatAR(visit.estimated_date)}`
+                : turnoCancelado(visit) && visit.citacion_cancelada ? `Turno del ${formatAR(visit.citacion_cancelada)}, cancelado` : undefined}
               badge={
                 <>
                   {d != null && d !== 0 && <span style={dev}>{d > 0 ? '+' : '−'}{Math.abs(d)} d</span>}

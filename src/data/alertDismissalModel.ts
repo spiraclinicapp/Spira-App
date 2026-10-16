@@ -104,15 +104,21 @@ export interface AlertDismissalRow {
  * con la misma ventana y citas distintas tendrían la misma huella. Lo que define esa condición es
  * **a qué cita no vino el paciente**: `estimated_date`.
  *
- * TIENE QUE ESPEJAR AL SERVIDOR. El ancla la calcula `dismiss_alert` (0107) con este mismo `case`,
- * y acá se compara contra lo guardado: si los dos lados eligen columnas distintas, ningún descarte
- * coincide nunca —o peor, coincide de más y silencia una alerta que no correspondía—. Las dos
- * mitades de la regla viven lejos, así que están escritas igual y nombradas igual a propósito.
+ * Y UN TURNO CANCELADO (0161) no tiene fecha: su ancla es el MOMENTO de la cancelación
+ * (`turno_cancelado_at`, un instante y no un día). Con la fecha vacía el ancla era '-infinity' para
+ * todas las cancelaciones de la visita, y archivar una tapaba las siguientes.
+ *
+ * TIENE QUE ESPEJAR AL SERVIDOR. El ancla la calcula `dismiss_alert` (0107, re-declarada en la 0161)
+ * con este mismo `case`, y acá se compara contra lo guardado: si los dos lados eligen columnas
+ * distintas, ningún descarte coincide nunca —o peor, coincide de más y silencia una alerta que no
+ * correspondía—. Las dos mitades de la regla viven lejos, así que están escritas igual y nombradas igual.
  */
 function anclaDeLaVisita(
-  visit: Pick<TrackVisitRow, 'computed_status' | 'window_end' | 'estimated_date'>,
-): string | null {
-  return visit.computed_status === 'por_reprogramar' ? visit.estimated_date : visit.window_end
+  visit: Pick<TrackVisitRow, 'computed_status' | 'window_end' | 'estimated_date' | 'turno_cancelado_at'>,
+): { fecha: string | null } | { instante: string } {
+  if (visit.computed_status !== 'por_reprogramar') return { fecha: visit.window_end }
+  if (!visit.estimated_date && visit.turno_cancelado_at) return { instante: visit.turno_cancelado_at }
+  return { fecha: visit.estimated_date }
 }
 
 /**
@@ -127,7 +133,7 @@ function anclaDeLaVisita(
  */
 export function isVisitAlertDismissed(
   dismissals: AlertDismissalRow[],
-  visit: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end' | 'estimated_date'>,
+  visit: Pick<TrackVisitRow, 'id' | 'computed_status' | 'window_end' | 'estimated_date' | 'turno_cancelado_at'>,
 ): boolean {
   const ancla = anclaDeLaVisita(visit)
   return dismissals.some(
@@ -135,7 +141,7 @@ export function isVisitAlertDismissed(
       d.kind === 'visita' &&
       d.visit_id === visit.id &&
       (d.status ?? '') === visit.computed_status &&
-      sameAnchor(d.anchor, ancla),
+      ('instante' in ancla ? sameInstant(d.anchor, ancla.instante) : sameAnchor(d.anchor, ancla.fecha)),
   )
 }
 

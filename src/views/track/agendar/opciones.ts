@@ -70,8 +70,9 @@ export type ContextoDeOpciones =
       randomizationDate: string | null
       /** `availableEventKinds(...)`: los tipos sueltos que el protocolo admite en esta etapa. */
       kindsSueltos: readonly VisitKind[]
-      /** Ofrecer «Una visita pendiente del estudio» (sólo al abrir desde «Se pasó la fecha»): en la
-       *  ficha no va, porque para la propia visita está «Reprogramar». */
+      /** Ofrecer «Una visita pendiente del estudio»: al abrir desde «Se pasó la fecha» o «Por reprogramar»,
+       *  o si el paciente tiene un turno cancelado (0161), que es cómo se le da fecha desde la ficha. Si no,
+       *  en la ficha no va: para la propia visita está «Reprogramar». */
       traer?: boolean
       continuar: number
     }

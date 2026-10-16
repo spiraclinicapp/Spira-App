@@ -18,6 +18,7 @@ import { ClearFilters, FilterSearch } from '../components/FilterBar'
 import { coincideBusqueda, opcionesCoordinador, opcionesMedico, SIN_VALOR } from './alertFilters'
 import { Modal } from '../components/Modal'
 import { useFechaPasada } from '../data/visits'
+import { fechaDeReferenciaDeAlerta, motivoDeAlertaDeVisita } from './alertaDeVisita'
 import type { TrackVisitRow } from '../data/visits'
 import { useProtocols } from '../data/protocols'
 import {
@@ -124,10 +125,6 @@ const SIN_MARCAR = 'sin_marcar'
  *  fecha pasada y del IP por el ícono (el del panel de reportes) y el rótulo. */
 const TINTA_SIN_MARCAR = 'var(--spira-acc-deep-warn)'
 
-/** Fecha de referencia de una alerta para el filtro de antigüedad. */
-function refDate(a: TrackVisitRow): string | null {
-  return a.window_end ?? a.estimated_date ?? null
-}
 
 /**
  * Vista Alertas: promueve el card de alertas del Resumen a vista full con filtros por
@@ -286,7 +283,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
       if (fCoord.length > 0 && !fCoord.includes(a.coordinator_id ?? SIN_VALOR)) return false
       if (!coincideBusqueda(a, q)) return false
       if (ageDays > 0) {
-        const ref = refDate(a)
+        const ref = fechaDeReferenciaDeAlerta(a)
         if (!ref) return false
         const age = daysDiffISO(ref, today)
         if (age > ageDays) return false
@@ -919,9 +916,12 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
             {filtered.map((a) => {
               const c = VISIT_STATES[a.computed_status].color
               const vName = visitTitle(a)
-              const motivo = a.computed_status === 'ventana_vencida'
-                ? `Ventana vencida el ${a.window_end ? formatAR(a.window_end) : '—'} · ${vName}`
-                : `Reporte de procedimiento fuera de plazo · ${vName}`
+              /* Las cuatro clases con su nombre (`motivoDeAlertaDeVisita`): hasta la 0161 un «No vino» se leía
+                 «Reporte de procedimiento fuera de plazo», y un turno cancelado lo habría heredado. */
+              const motivo = motivoDeAlertaDeVisita(a, vName, todayISO())
+              /* «Por reprogramar» (no vino o turno cancelado) se resuelve dándole fecha: lleva el mismo
+                 «Agendar» que «Se pasó la fecha», abajo a la derecha, donde la ventana vencida lleva su desvío. */
+              const agendable = a.computed_status === 'por_reprogramar'
               return (
                 <div key={a.id} style={{ position: 'relative' }}>
                 <div
@@ -936,7 +936,7 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                   aria-label={`Abrir la visita de ${a.patient_name} — ${VISIT_STATES[a.computed_status].label}`}
                   style={alertItemStyle(c, {
                     conBotonDescartar: true,
-                    conBotonDesviacion: a.computed_status === 'ventana_vencida',
+                    conBotonDesviacion: a.computed_status === 'ventana_vencida' || agendable,
                   })}
                 >
                   <span style={{ flex: '0 0 auto', marginTop: 1 }}>
@@ -978,6 +978,17 @@ export function TrackAlertsView({ module, submodule, navTarget, onTargetConsumed
                 >
                   <Icon name="x" size={15} />
                 </button>
+                {agendable && (
+                  <button
+                    type="button"
+                    style={deviationBtn}
+                    className="spira-card-link"
+                    aria-label={`Agendar la visita de ${a.patient_name}`}
+                    onClick={() => setReprogramando(a)}
+                  >
+                    Agendar
+                  </button>
+                )}
                 {/* SÓLO la ventana vencida. "No vino" y "pendiente vencido" no son desviaciones de
                     ventana: se resuelven de otra manera y quedan como estaban. */}
                 {a.computed_status === 'ventana_vencida' && (

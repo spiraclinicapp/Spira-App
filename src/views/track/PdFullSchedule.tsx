@@ -2,8 +2,8 @@ import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { TrackVisitRow } from '../../data/visits'
-import { dotVisual, flowWindow, orderVisits, visitStateLabel, visitTitle, ventanaDeVisita, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
-import { dotColor } from '../visitStates'
+import { dotVisual, flowWindow, orderVisits, turnoCancelado, visitStateLabel, visitTitle, ventanaDeVisita, fueraDeVentana, ventanaAbierta } from '../../lib/visits'
+import { dotColor, VISIT_STATES } from '../visitStates'
 import { ayudaDeRotulo, GLOSARIO } from '../../lib/glosario'
 import { formatShortAR, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
@@ -90,7 +90,9 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
       {recorte && recorte.moreBefore > 0 && masBtn(recorte.moreBefore, 'anteriores')}
       {visibles.map((v, k) => {
         const cur = v.id === currentId
-        const estColor = dotColor(dotVisual(v), accent)
+        /* Un turno cancelado (0161) lleva el color de «Por reprogramar»: es lo que es, y la pastilla dice
+           «Sin turno» (`visitStateLabel`). La fila no se tiñe de verde (`ventanaAbierta` da false). */
+        const estColor = turnoCancelado(v) ? VISIT_STATES.por_reprogramar.color : dotColor(dotVisual(v), accent)
         const estLabel = visitStateLabel(v, today)
         /* El título, entero y tal como lo escribieron en el cuadro ("V5 W4"). Antes acá se
            colapsaba el nombre cuando no decía más que la semana, porque el renglón de abajo
@@ -104,7 +106,9 @@ export function PdFullSchedule({ visits, currentId, accent, onOpen, ventana, pie
         const fechaDeArriba = v.real_date ?? v.estimated_date
         const estimada = fechaSegunProtocolo(v)
         const desv = desvioSegunProtocolo(v)
-        const tituloEstimada = estimada
+        const tituloEstimada = turnoCancelado(v) && v.citacion_cancelada
+          ? `Turno del ${formatShortAR(v.citacion_cancelada)}, cancelado. Fecha estimada por el cronograma: ${estimada ? formatShortAR(estimada) : '—'}`
+          : estimada
           ? `Fecha estimada: la que manda el cronograma del estudio${v.real_date ? '' : `. Citada para el ${v.estimated_date ? formatShortAR(v.estimated_date) : '—'}`}`
           : estimadaNoAplica(v)
             ? 'No aplica: el protocolo no fija fecha para esta visita (visita suelta o de agenda libre)'

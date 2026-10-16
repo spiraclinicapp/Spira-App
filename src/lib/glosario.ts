@@ -73,7 +73,7 @@ export const GLOSARIO_ESTADOS: Record<VisitStatus, string> = {
   completa: 'La visita se hizo y no queda nada pendiente de ella.',
   item_vencido: 'La visita se hizo, pero algo suyo —un reporte, un procedimiento— pasó su fecha límite sin cerrarse.',
   ventana_vencida: 'Pasó la última fecha en la que esta visita podía hacerse y no se hizo.',
-  por_reprogramar: 'El paciente no vino y la visita hay que volver a agendarla.',
+  por_reprogramar: 'La visita no tiene fecha: el paciente no vino o se canceló el turno. Hay que volver a agendarla.',
 }
 
 /**

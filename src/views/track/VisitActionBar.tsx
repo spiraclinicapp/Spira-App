@@ -2,7 +2,8 @@ import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import { OPERATIONAL_STAGES, VISIT_STATES } from '../visitStates'
-import { formatTimeAR, todayISO } from '../../lib/dates'
+import { formatDayMonth, formatTimeAR, isoDayAR, todayISO } from '../../lib/dates'
+import { turnoCancelado } from '../../lib/visits'
 import { NEXT_STEP, advanceRole } from './advanceStep'
 import { atencionMedicaDeOtroDia, contextoDeEtapa, etapaProgreso, rotuloDeMarca } from './visitHeaderRules'
 import { accionesDeVisita, llegadaFueraDeFecha, nombreDeLaVisita } from './accionesDeVisita'
@@ -29,8 +30,8 @@ import { esNoVino } from './visitas/calendario'
  *
  * La primaria es el BOTÓN DE ETAPA DIVIDIDO (handoff `docs/design_handoff_boton_etapa/`, 2026-10-14): la
  * cara avanza y la flecha abre las acciones sobre la visita —volver a la etapa anterior, reprogramar,
- * vino otro día (0158), copiar el ID, eliminar, pedir retest—, las mismas que en la fila de Visitas
- * (`accionesDeVisita`). Está
+ * cancelar el turno (0161), vino otro día (0158), copiar el ID, eliminar, pedir retest—, las mismas que en
+ * la fila de Visitas (`accionesDeVisita`). Con el turno cancelado la cara es «Reprogramar». Está
  * SIEMPRE: desde el cronograma de Estudios y pacientes el modal es la única puerta a esas acciones, y
  * ahí se abren visitas de cualquier etapa. Sin permiso para la marca, la cara se apaga y dice de quién es
  * (antes, el bloque punteado); completa, queda «Acciones». Era el «anexo con chevron» del mock de
@@ -74,22 +75,30 @@ export function VisitActionBar({
   const finalizada = stage === 'fin_atencion'
   const hoy = todayISO()
   const noVino = esNoVino(visit)
+  /* Turno cancelado (0161): sin fecha y sin nadie esperado. El listón lo dice, y la cara principal es
+     «Reprogramar» —la salida de ese estado— en vez de «Marcar llegada», que la base rechazaría. */
+  const sinTurno = turnoCancelado(visit)
   /* Marcar la llegada de una visita que no está citada para hoy confirma antes, en el lugar del menú
      (`llegadaFueraDeFecha`). Mover la citación es de quien coordina el estudio o de gerencia: `permisos.coordina`. */
   const llegada = llegadaFueraDeFecha(visit, hoy, permisos.coordina)
   const medicoDeOtroDia = atencionMedicaDeOtroDia(visit, hoy)
-  const medicoApagado = !!medicoDeOtroDia && !visit.wants_doctor && !visit.doctor_seen_at
+  const medicoApagado = (sinTurno || !!medicoDeOtroDia) && !visit.wants_doctor && !visit.doctor_seen_at
+  const porQueMedicoApagado = sinTurno ? 'La visita no tiene turno' : medicoDeOtroDia ?? undefined
   const codigo = nombreDeLaVisita(visit)
 
   return (
     <div className="spira-visit-actbar" style={actbar}>
       <span style={underbar}>
         <span style={top}>
-          <b style={topLabel}>{meta.label}</b>
+          <b style={topLabel}>{sinTurno ? 'Sin turno' : meta.label}</b>
           {/* `inicio_atencion` no tiene hora que mostrar: sale de `real_date`, que es un date sin
               hora. No se inventa una (ver `marcaDeEtapa`). */}
-          {marca && <span style={hr}>{marca}</span>}
-          {ctx && <span style={ctxStyle}>{marca ? `· ${ctx}` : ctx}</span>}
+          {sinTurno && visit.turno_cancelado_at
+            ? <span style={ctxStyle}>cancelado el {formatDayMonth(isoDayAR(visit.turno_cancelado_at))}</span>
+            : <>
+              {marca && <span style={hr}>{marca}</span>}
+              {ctx && <span style={ctxStyle}>{marca ? `· ${ctx}` : ctx}</span>}
+            </>}
           <span style={fr}>{paso} de {total}</span>
         </span>
         <span style={rail}><i style={{ ...railFill, width: `${pct}%` }} /></span>
@@ -131,7 +140,7 @@ export function VisitActionBar({
                 type="button"
                 onClick={onSolicitarMedico}
                 disabled={busy || medicoApagado}
-                title={medicoApagado ? medicoDeOtroDia ?? undefined : undefined}
+                title={medicoApagado ? porQueMedicoApagado : undefined}
                 style={medicoApagado ? secApagado : sec}
               >
                 <Icon name="users" size={15} color="var(--spira-track)" />
@@ -145,7 +154,12 @@ export function VisitActionBar({
 
             <BotonEtapa
               tamano="modal"
-              cara={step ? {
+              cara={sinTurno ? {
+                rotulo: 'Reprogramar',
+                habilitada: permisos.coordina,
+                pista: 'Lo reprograma quien coordina el estudio',
+                onClick: () => onAccion('reprogramar'),
+              } satisfies CaraPrincipal : step ? {
                 rotulo: step.label,
                 habilitada: canAdvance,
                 pista: `Requiere acción ${role === 'reception' ? 'de Recepción' : 'del clínico'}`,
@@ -159,7 +173,7 @@ export function VisitActionBar({
                   : undefined,
               } satisfies CaraPrincipal : null}
               acciones={accionesDeVisita(visit, permisos, hoy)}
-              encabezado={{ visita: codigo, etapa: `${noVino ? VISIT_STATES.por_reprogramar.short : meta.short} · ${paso} de ${total}` }}
+              encabezado={{ visita: codigo, etapa: `${sinTurno ? 'Sin turno' : noVino ? VISIT_STATES.por_reprogramar.short : meta.short} · ${paso} de ${total}` }}
               rotuloVisita={codigo}
               etiqueta={`Más acciones de la visita de ${visit.patient_name}`}
               ocupado={busy}

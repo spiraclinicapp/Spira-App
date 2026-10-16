@@ -19,7 +19,7 @@ import { priorizarAlertas } from '../views/visitRules'
 import { VisitDetail } from '../views/track/VisitDetail'
 import { DESTINO_PENDIENTES, nombreDeDestino } from '../views/resumen/destinos'
 import {
-  agruparPorDia, claseDeAlerta, recortarPorGravedad, momentoDe, momentoDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
+  agruparPorDia, alertaPropia, claseDeAlerta, claveDeNovedadDeVisita, recortarPorGravedad, momentoDe, momentoDeVisita, motivoDeAlerta, motivoDeIp, motivoDeReporte,
   textoDePildora, tonoDeNoLeidas,
 } from './notificaciones'
 import { guardarLeidas, leerLeidas, marcar, noLeidas, reconciliar } from './leidas'
@@ -296,7 +296,7 @@ export function NotificationsMenu({
       /* La clase va en la clave: una visita que pasa de «pendiente vencido» a «ventana vencida» es
          una notificación NUEVA, no la misma con otro color. */
       const clase = claseDeAlerta(a.computed_status)
-      const clave = `${clase}:${a.id}`
+      const clave = claveDeNovedadDeVisita(clase, a)
       return {
         datos: {
           clave,
@@ -311,7 +311,8 @@ export function NotificationsMenu({
         abrir: abrirVisita(a.id),
         abrirPaciente: abrirFicha(a.patient_id, a.protocol_id),
         descarte: { kind: 'visita', visitId: a.id, reportDefinitionId: null, etiqueta: `${motivoDeAlerta(a)} · ${a.patient_name}` },
-        novedad: { clave, avisa: true, propia: false },
+        // Un turno que cancelaste vos no es novedad para vos (0161).
+        novedad: { clave, avisa: true, propia: alertaPropia(a, uid) },
         rotulo: 'Nueva notificación',
       }
     }),

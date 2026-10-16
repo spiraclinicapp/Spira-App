@@ -8,7 +8,7 @@ import { inscripcionDelEstudio } from '../../lib/inscripcion'
 import type { PatientRow } from '../../data/patients'
 import { usePatientVisits } from '../../data/visits'
 import type { TrackVisitRow, VisitaDeFila } from '../../data/visits'
-import { orderVisits, todaySplit, ubicacionDeHoy, visitShortLabel } from '../../lib/visits'
+import { orderVisits, todaySplit, turnoCancelado, ubicacionDeHoy, visitShortLabel } from '../../lib/visits'
 import { GLOSARIO } from '../../lib/glosario'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { PdFullSchedule } from './PdFullSchedule'
@@ -69,8 +69,11 @@ export function PdPatientRow({ patient, visits, accent, protocolId, protocolCode
   const { prev: prevByDate, next, todayVisit } = todaySplit(filas, today)
   /* "Anterior" = la visita inmediatamente anterior a la de hoy en la SECUENCIA, aunque sea del
      mismo día (p. ej. screening + run-in el mismo día: la anterior es la previa, no "—"). Si hoy
-     no hay visita, la última con fecha pasada (lo que da todaySplit). */
-  const ordered = orderVisits(filas)
+     no hay visita, la última con fecha pasada (lo que da todaySplit).
+     Sin los turnos cancelados (0161): Anterior / Actualidad / Próxima son lugares en el tiempo, y una
+     visita sin turno no tiene; si no, la V5 cancelada salía como «Anterior», algo que nunca pasó. Está en
+     el cronograma desplegado y en Pendientes. */
+  const ordered = orderVisits(filas).filter((v) => !turnoCancelado(v))
   const todayIdx = todayVisit ? ordered.findIndex((v) => v.id === todayVisit.id) : -1
   const prev = todayIdx > 0 ? (ordered[todayIdx - 1] ?? null) : prevByDate
   const flowCurrentId = todayVisit?.id ?? next?.id ?? prev?.id ?? null

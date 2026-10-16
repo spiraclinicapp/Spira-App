@@ -17,10 +17,16 @@ import { VISIT_STATES } from './visitStates'
  *
  * Un estado que no sea de alerta no debería llegar (la consulta filtra por las tres), pero si llega
  * dice el SUYO (`VISIT_STATES`), no el de otra clase: la misma regla que `motivoDeAlerta` en la campana.
+ *
+ * `por_reprogramar` tiene dos causas desde la 0161 (`turnoCancelado`, el tercer argumento): el paciente no
+ * vino, o se canceló el turno. Las dos «no tienen fecha nueva»; decir «No vino» de un turno cancelado sería
+ * el mismo error de arriba con otra cara.
  */
-export function alertaDeLaFicha(status: VisitStatus, titulo: string): { texto: string; icono: IconName } {
+export function alertaDeLaFicha(status: VisitStatus, titulo: string, turnoCancelado = false): { texto: string; icono: IconName } {
   if (status === 'ventana_vencida') return { texto: `Ventana vencida · ${titulo}`, icono: 'alert' }
-  if (status === 'por_reprogramar') return { texto: `No vino · sin fecha nueva · ${titulo}`, icono: SEVERIDAD_ICONO.por_reprogramar }
+  if (status === 'por_reprogramar') {
+    return { texto: `${turnoCancelado ? 'Turno cancelado' : 'No vino'} · sin fecha nueva · ${titulo}`, icono: SEVERIDAD_ICONO.por_reprogramar }
+  }
   if (status === 'item_vencido') return { texto: `Reporte de procedimiento vencido · ${titulo}`, icono: 'clock' }
   return { texto: `${VISIT_STATES[status].label} · ${titulo}`, icono: 'clock' }
 }

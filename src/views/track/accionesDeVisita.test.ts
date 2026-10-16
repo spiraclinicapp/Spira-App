@@ -44,21 +44,33 @@ const enAtencion = (extra: Partial<VisitaParaAcciones> = {}) =>
   visita({ operational_stage: 'inicio_atencion', arrived_at: LLEGADA, attended_at: INICIO, real_date: HOY, estimated_date: HOY, ...extra })
 const completa = (extra: Partial<VisitaParaAcciones> = {}) =>
   visita({ operational_stage: 'fin_atencion', arrived_at: LLEGADA, attended_at: INICIO, real_date: '2026-09-30', ...extra })
+/** Un turno cancelado (0161): sin fecha, con su sello (el 12 oct, mediodía en Argentina) y la citación que tenía. */
+const cancelada = (extra: Partial<VisitaParaAcciones> = {}) =>
+  visita({ estimated_date: null, turno_cancelado_at: '2026-10-12T15:00:00.000Z', citacion_cancelada: '2026-10-28', ...extra })
+const soloGerencia: PermisosDeVisita = { recepcion: false, clinica: false, coordina: true }
 
 const item = (lista: AccionDeVisita[], clave: AccionDeVisita['clave']) => lista.find((a) => a.clave === clave)
 
 describe('el orden del menú', () => {
-  it('Por llegar: volver · reprogramar · vino otro día · no vino · copiar · eliminar', () => {
+  it('Por llegar: volver · reprogramar · cancelar turno · vino otro día · no vino · copiar · eliminar', () => {
     expect(accionesDeVisita(visita(), todo, HOY).map((a) => a.clave))
-      .toEqual(['volver', 'reprogramar', 'vino-otro-dia', 'no-vino', 'copiar', 'eliminar'])
+      .toEqual(['volver', 'reprogramar', 'cancelar-turno', 'vino-otro-dia', 'no-vino', 'copiar', 'eliminar'])
   })
   it('en el centro desde hoy, sin «vino otro día» ni «no vino»', () => {
     expect(accionesDeVisita(concurrio(), todo, HOY).map((a) => a.clave))
-      .toEqual(['volver', 'reprogramar', 'copiar', 'eliminar'])
+      .toEqual(['volver', 'reprogramar', 'cancelar-turno', 'copiar', 'eliminar'])
   })
   it('Completa: el retest ocupa el lugar de «Volver»', () => {
     expect(accionesDeVisita(completa(), todo, HOY).map((a) => a.clave))
-      .toEqual(['retest', 'reprogramar', 'copiar', 'eliminar'])
+      .toEqual(['retest', 'reprogramar', 'cancelar-turno', 'copiar', 'eliminar'])
+  })
+  it('una suelta no lleva «Cancelar turno» (se elimina)', () => {
+    expect(accionesDeVisita(visita({ kind: 'vnp' }), todo, HOY).map((a) => a.clave))
+      .toEqual(['volver', 'reprogramar', 'vino-otro-dia', 'no-vino', 'copiar', 'eliminar'])
+  })
+  it('turno cancelado: sin «vino otro día» ni «no vino» (nadie lo espera ningún día)', () => {
+    expect(accionesDeVisita(cancelada(), todo, HOY).map((a) => a.clave))
+      .toEqual(['volver', 'reprogramar', 'cancelar-turno', 'copiar', 'eliminar'])
   })
   it('sólo Eliminar va en rojo', () => {
     const rojos = accionesDeVisita(visita({ kind: 'vnp' }), todo, HOY).filter((a) => a.peligro).map((a) => a.clave)
@@ -173,7 +185,7 @@ describe('Vino otro día', () => {
   })
   it('Concurrió de otro día, en el orden de siempre: después de Reprogramar', () => {
     expect(accionesDeVisita(concurrio({ arrived_at: '2026-10-10T14:37:00.000Z' }), todo, HOY).map((a) => a.clave))
-      .toEqual(['volver', 'reprogramar', 'vino-otro-dia', 'copiar', 'eliminar'])
+      .toEqual(['volver', 'reprogramar', 'cancelar-turno', 'vino-otro-dia', 'copiar', 'eliminar'])
   })
   it('Concurrió de otro día sin coordinar el estudio: apagado con su porqué', () => {
     expect(item(accionesDeVisita(concurrio({ arrived_at: '2026-10-10T14:37:00.000Z' }), soloRecepcion, HOY), 'vino-otro-dia'))
@@ -199,8 +211,58 @@ describe('Reprogramar', () => {
     expect(item(accionesDeVisita(enAtencion(), todo, HOY), 'reprogramar')).toMatchObject({ habilitada: false, bajada: 'Ya concurrió al centro' })
     expect(item(accionesDeVisita(completa(), todo, HOY), 'reprogramar')).toMatchObject({ habilitada: false, bajada: 'La visita está completa' })
   })
-  it('sin permiso de Recepción, apagado', () => {
+  it('sin permiso, apagado', () => {
     expect(item(accionesDeVisita(visita(), nada, HOY), 'reprogramar')!.habilitada).toBe(false)
+  })
+  /* CAMBIO A PROPÓSITO (0161): el permiso es el de mover fechas (`coordina`), el de la base. Antes era
+     `recepcion`, que no cuenta a gerencia (decisión 94); y es la salida de «Cancelar turno». */
+  it('con el permiso de mover fechas: gerencia sí, Recepción que no coordina no', () => {
+    expect(item(accionesDeVisita(visita(), soloGerencia, HOY), 'reprogramar')!.habilitada).toBe(true)
+    expect(item(accionesDeVisita(visita(), soloRecepcion, HOY), 'reprogramar'))
+      .toMatchObject({ habilitada: false, bajada: 'Lo reprograma quien coordina el estudio' })
+  })
+  it('con el turno cancelado: habilitado, y la bajada dice cuándo se canceló', () => {
+    expect(item(accionesDeVisita(cancelada(), todo, HOY), 'reprogramar')).toMatchObject({ habilitada: true, bajada: 'Turno cancelado el 12 oct' })
+  })
+})
+
+describe('Cancelar turno (0161)', () => {
+  it('por llegar, con permiso: habilitado, y confirma en el lugar del ítem con «Mantener turno»', () => {
+    const c = item(accionesDeVisita(visita(), todo, HOY), 'cancelar-turno')!
+    expect(c).toMatchObject({ titulo: 'Cancelar turno', bajada: 'Queda sin fecha, para reprogramar', habilitada: true })
+    expect(c.confirmar).toMatchObject({ pregunta: '¿Cancelar el turno del 28 oct?', noConfirmar: 'Mantener turno' })
+    expect(c.confirmar!.detalle).toContain('No se borra del cronograma')
+  })
+  it('el de hoy pregunta por «el turno de hoy»', () => {
+    expect(item(accionesDeVisita(visita({ estimated_date: HOY }), todo, HOY), 'cancelar-turno')!.confirmar!.pregunta).toBe('¿Cancelar el turno de hoy?')
+  })
+  it('una cita que ya pasó, sin marcar, también se cancela', () => {
+    expect(item(accionesDeVisita(visita({ estimated_date: '2026-10-08' }), todo, HOY), 'cancelar-turno')!.habilitada).toBe(true)
+  })
+  it('gerencia sí; Recepción que no coordina, o sin permiso: apagado con su porqué', () => {
+    expect(item(accionesDeVisita(visita(), soloGerencia, HOY), 'cancelar-turno')!.habilitada).toBe(true)
+    expect(item(accionesDeVisita(visita(), soloRecepcion, HOY), 'cancelar-turno'))
+      .toMatchObject({ habilitada: false, bajada: 'Lo cancela quien coordina el estudio' })
+    expect(item(accionesDeVisita(visita(), nada, HOY), 'cancelar-turno')!.habilitada).toBe(false)
+  })
+  it('en el centro o completa: apagado, como Reprogramar', () => {
+    expect(item(accionesDeVisita(concurrio(), todo, HOY), 'cancelar-turno')).toMatchObject({ habilitada: false, bajada: 'Ya concurrió al centro' })
+    expect(item(accionesDeVisita(enAtencion(), todo, HOY), 'cancelar-turno')).toMatchObject({ habilitada: false, bajada: 'Ya concurrió al centro' })
+    expect(item(accionesDeVisita(completa(), todo, HOY), 'cancelar-turno')).toMatchObject({ habilitada: false, bajada: 'La visita está completa' })
+  })
+  it('con «no vino»: apagado (ya está por reprogramar)', () => {
+    expect(item(accionesDeVisita(visita({ no_show_at: LLEGADA }), todo, HOY), 'cancelar-turno'))
+      .toMatchObject({ habilitada: false, bajada: 'Tiene «no vino»: ya está por reprogramar' })
+  })
+  it('ya cancelado: apagado', () => {
+    expect(item(accionesDeVisita(cancelada(), todo, HOY), 'cancelar-turno')).toMatchObject({ habilitada: false, bajada: 'El turno ya está cancelado' })
+  })
+  it('la randomización legacy (kind randomizacion): apagado, se reprograma', () => {
+    expect(item(accionesDeVisita(visita({ kind: 'randomizacion' }), todo, HOY), 'cancelar-turno'))
+      .toMatchObject({ habilitada: false, bajada: 'Fija la fecha del tratamiento: reprogramala' })
+  })
+  it('una suelta no lo lleva', () => {
+    expect(item(accionesDeVisita(visita({ kind: 'retest' }), todo, HOY), 'cancelar-turno')).toBeUndefined()
   })
 })
 
@@ -225,7 +287,7 @@ describe('Copiar ID', () => {
 
 describe('Eliminar', () => {
   it('sólo las sueltas: el cronograma y la randomización no se borran (policy 0022)', () => {
-    expect(item(accionesDeVisita(visita({ kind: 'programada' }), todo, HOY), 'eliminar')).toMatchObject({ habilitada: false, bajada: 'Las visitas del cronograma no se borran' })
+    expect(item(accionesDeVisita(visita({ kind: 'programada' }), todo, HOY), 'eliminar')).toMatchObject({ habilitada: false, bajada: 'Del cronograma: cancelá el turno' })
     expect(item(accionesDeVisita(visita({ kind: 'randomizacion' }), todo, HOY), 'eliminar')!.habilitada).toBe(false)
     expect(item(accionesDeVisita(visita({ kind: 'vnp' }), todo, HOY), 'eliminar')!.habilitada).toBe(true)
     expect(item(accionesDeVisita(completa({ kind: 'retest' }), todo, HOY), 'eliminar')!.habilitada).toBe(true)

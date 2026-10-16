@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { avisar } from '../../components/AvisoGlobal'
-import { markArrived, markNoShow, registrarLlegadaAdelantada, retrocederEtapa } from '../../data/dayVisits'
+import { cancelarTurno, markArrived, markNoShow, registrarLlegadaAdelantada, retrocederEtapa } from '../../data/dayVisits'
 import type { DayVisitRow } from '../../data/dayVisits'
 import { deleteVisitEvent } from '../../data/visitEvents'
 import type { TrackVisitRow } from '../../data/visits'
@@ -16,7 +16,7 @@ import { VinoOtroDiaModal } from './VinoOtroDiaModal'
  * ejecuta). Lo usan la fila de Visitas y el modal de la visita: una sola implementación, así el mismo
  * «Volver» no puede hacer una cosa en la lista y otra en el modal.
  *
- *   ejecutar(visita, clave)   volver · no vino · copiar · eliminar → RPC + aviso + `onCambio`
+ *   ejecutar(visita, clave)   volver · no vino · cancelar turno · copiar · eliminar → RPC + aviso + `onCambio`
  *                             reprogramar · retest · vino otro día → abre su modal (en `capas`)
  *   llegar(visita, mueve)     la llegada confirmada fuera de fecha (`llegadaFueraDeFecha`)
  *   ocupado                   id de la visita con una mutación en vuelo
@@ -79,6 +79,10 @@ export function useAccionesDeVisita({ acento, onCambio, onError, onEliminada, on
         return
       case 'deshacer-no-vino':
         if (await correr(visita, () => markNoShow(visita.id, false), 'Falta deshecha.')) onCambio()
+        return
+      case 'cancelar-turno':
+        // En la lista del día la fila se va sola (ya no tiene fecha): el aviso dice a dónde fue (0161).
+        if (await correr(visita, () => cancelarTurno(visita.id), 'Turno cancelado: la visita quedó en Pendientes.')) onCambio()
         return
       case 'volver': {
         // El aviso nombra la etapa a la que volvió, como el ítem que se tocó («Volver a Concurrió»).

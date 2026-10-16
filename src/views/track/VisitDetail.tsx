@@ -4,7 +4,7 @@ import { useVisit, markArrived, startVisitAttention, markReady, markReadyWithOut
 import { todayISO } from '../../lib/dates'
 import { useLugar } from '../../lib/lugar'
 import { hayPopoverAbierto } from '../../components/usePopover'
-import { visitCode, visitTitle } from '../../lib/visits'
+import { turnoCancelado, visitCode, visitTitle } from '../../lib/visits'
 import { ConfirmarAvance } from './ConfirmarAvance'
 import { ReadyOutcomeModal } from './ReadyOutcomeModal'
 import { AgendarVisitaModal } from './agendar/AgendarVisitaModal'
@@ -394,7 +394,9 @@ export function VisitDetail({
                     elegidos y sin enviar viajaban al paciente siguiente en vez de perderse, que es
                     peor. Decisión del Director: remontar. */}
                 <div style={{ minWidth: 0 }}>
-                  <VisitDispensationPanel key={visit.id} visit={visit} accent={accent} readOnly={readOnly} />
+                  {/* Con el turno cancelado (0161) se ve, pero no se pide medicación: Farmacia la prepararía
+                      para una visita sin día. Primero se reprograma (plan `docs/plan-cancelar-turno.md`, P3). */}
+                  <VisitDispensationPanel key={visit.id} visit={visit} accent={accent} readOnly={readOnly || turnoCancelado(visit)} />
                 </div>
               </div>
             </div>

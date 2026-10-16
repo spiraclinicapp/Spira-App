@@ -170,7 +170,10 @@ function AltaProtocolo({ onClose, onCreated }: {
    * las visitas, la que no dispensa tiene que decirlo ANTES de elegirla, no después.
    */
   const opcionesVisita = useMemo(
-    () => (visitas.data ?? []).map((v) => ({
+    /* Una visita del cronograma SIN fecha es un turno cancelado (0161: la base no admite otra cosa): no se
+       le abre un pedido —Farmacia prepararía medicación para una visita que no tiene día—; primero
+       Coordinación la reprograma (plan `docs/plan-cancelar-turno.md`, P3). */
+    () => (visitas.data ?? []).filter((v) => !(v.kind === 'programada' && !v.visit_date)).map((v) => ({
       value: v.visit_id,
       label: v.visit_date ? `${visitTitle(v)} · ${formatAR(v.visit_date)}` : visitTitle(v),
       desc: v.ya_solicitada

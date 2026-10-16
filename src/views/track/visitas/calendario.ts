@@ -10,7 +10,7 @@
    `getUTC*` el resultado es el mismo en cualquier zona.
    └─────────────────────────────────────────────────────────────────────────────────────────────┘ */
 import { isoDayAR } from '../../../lib/dates'
-import { marcaTardia } from '../../../lib/visits'
+import { marcaTardia, turnoCancelado } from '../../../lib/visits'
 import type { FechasVisita, OperationalStage } from '../../../data/dayVisits'
 import type { VisitStatus } from '../../../data/visits'
 
@@ -236,6 +236,8 @@ export interface FilaConEstado {
   operational_stage: OperationalStage
   computed_status: VisitStatus
   no_show_at?: string | null
+  /** 0161: un turno cancelado también es `por_reprogramar`, pero no es «No vino». */
+  turno_cancelado_at?: string | null
 }
 
 /**
@@ -247,8 +249,12 @@ export interface FilaConEstado {
  * (0144), así que una falta cuya ventana venció dejaba de leerse «No vino» y volvía a ofrecer
  * «Marcar llegada» mientras el menú ⋯ ofrecía «Deshacer no vino». La marca `no_show_at` la limpian
  * la llegada y el reagendado (0067), así que con la etapa todavía en «por llegar» es la falta vigente.
+ *
+ * Y NO ALCANZA AL REVÉS desde la 0161: un turno cancelado también es `por_reprogramar`, y el paciente no
+ * faltó, avisó. Se excluye por su sello (`turnoCancelado`). La base no deja una cancelada con «no vino».
  */
 export function esNoVino(v: FilaConEstado): boolean {
+  if (turnoCancelado(v)) return false
   return v.computed_status === 'por_reprogramar' || (!!v.no_show_at && v.operational_stage === 'por_llegar')
 }
 
@@ -328,13 +334,14 @@ export function nombreCorto(nombre: string): string {
  * «Cont.» a secas, que no identifica nada.
  */
 /**
- * ¿Se puede reprogramar desde la fila? Recepción, y sólo si la visita no pasó: `rescheduleVisit` es un
- * update directo que sólo toca `estimated_date` y no mira `real_date` ni la etapa (ni la RLS, que
- * sólo verifica rol/protocolo), así que reprogramar una visita ya atendida deja una visita fantasma en
- * la fecha nueva. Mismo guard que AgendaView/PatientFichaView; lo usan el botón y el menú ⋯.
+ * ¿Se puede reprogramar desde la fila? Quien puede mover fechas (`coordina`: quien coordina el estudio o
+ * gerencia, la policy de UPDATE; hasta la 0161 era `canReception`, que no contaba a gerencia), y sólo si la
+ * visita no pasó: `rescheduleVisit` es un update directo que sólo toca `estimated_date` y no mira
+ * `real_date` ni la etapa (ni la RLS, que sólo verifica rol/protocolo), así que reprogramar una visita ya
+ * atendida deja una visita fantasma en la fecha nueva. Mismo guard que AgendaView/PatientFichaView.
  */
-export function puedeReprogramar(v: { real_date: string | null }, canReception: boolean): boolean {
-  return canReception && v.real_date === null
+export function puedeReprogramar(v: { real_date: string | null }, puedeMoverFechas: boolean): boolean {
+  return puedeMoverFechas && v.real_date === null
 }
 
 export function codigoCorto(codigo: string): string {
