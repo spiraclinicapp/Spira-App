@@ -125,6 +125,11 @@ devolvería la fecha teórica y **la visita volvería al turnero en un día que 
 (la ventana es del sponsor, `visits.ts:331-334`); el conteo del preview (`v_moves`, `0029:99-103`) cuenta igual que
 el UPDATE, para que preview y aplicar digan lo mismo. `generate_patient_visits` no hace falta: sólo inserta si no
 existe la visita de esa definición.
+*Al implementar, de paso:* el banco mostró que el MOVER de la 0029 no pedía `e.randomization_date is not null`. Una
+inscripción activa sin fecha de randomización y con automáticas pendientes (una definición pasada de libre a
+automática, por ejemplo) recibía `NULL + offset` y el sync entero reventaba contra `kind_shape`, ya antes de la 0161.
+El preview no la contaba (`desired` exige la fecha). La re-declaración le suma esa guarda, marcada, con su caso en
+el banco: ahora aplicar toca lo mismo que cuenta el preview.
 
 **D5 · Ordenar no es ubicar en el tiempo.** Hoy una sola función, `effectiveDate` (`lib/visits.ts:199-202`,
 `estimated_date ?? real_date ?? ''`), sirve para las dos cosas. Con la cancelada se separan:
@@ -629,9 +634,10 @@ Implementación secuencial. Todo cuelga de la 0161 (aditiva, va primero) y de `t
 los rótulos y Pendientes comparten `views/track/` y `lib/visits.ts`. Lo único separable es el bug de Pendientes
 (D7), y son minutos.
 
-## Preguntas abiertas para el Director
+## Preguntas al Director · decididas
 
-Cada una con la recomendada primero. Si dice «dale con lo recomendado», el plan ya está escrito así.
+**Decidido por el Director el 2026-10-16: «dale con lo recomendado».** Las seis quedan con la opción recomendada, que
+es la que ya estaba escrita en el plan. Se dejan las alternativas a la vista para saber qué se descartó.
 
 **P1 · ¿En qué etapas se ofrece?**
 - **(Recomendada) Sólo Por llegar.** Con la llegada marcada el paciente ya vino: si fue un error, primero «Volver a
@@ -678,12 +684,16 @@ Cada una con la recomendada primero. Si dice «dale con lo recomendado», el pla
 
 ## Implementation Tasks
 
-- [ ] **T1 (P1, humano ~6 h / CC ~35 min)** — base — `0161_cancelar_turno.sql` (columnas, los dos CHECK, el trigger,
+- [x] **T1 (P1, humano ~6 h / CC ~35 min)** — base — `0161_cancelar_turno.sql` (columnas, los dos CHECK, el trigger,
   `v_patient_visits`, `v_track_visits`, `sync_protocol_schedule`, `dismiss_alert`, `estadisticas_equipo_track`,
   `cancelar_turno_visita`) + `scripts/banco-rls/casos-0161.mjs` + `equivalencia.mjs 0161 --control` + índice de
   `supabase/README.md`
-  - Verify: el banco en verde; contra la base sin la 0161 fallan justo los casos nuevos; dollar-quotes en par; cada
-    re-declaración difiere de su última definición sólo en lo marcado
+  - Verificado (2026-10-16): `casos-0161.mjs` 52/52, con el antes y el después de la 0161 sobre los mismos datos
+    (estado y etapa de cada visita, lo que devuelve Estadísticas y lo que ve una coordinadora: iguales; la sonda, diez
+    en `true`); `casos-0158/0159/0160` 38/38, 6/6 y 27/27 (`casos-0160` fijado a la 0160); `equivalencia.mjs 0161
+    --control` sin diferencias de permisos (2028 comparaciones, control 12/12; 10 fotos distintas con las mismas
+    filas: las columnas nuevas de `patient_visits` y `v_track_visits`); 14 marcadores de dollar-quote, todos en par;
+    `check-migraciones` al día. `sembrar.mjs` no inventa turnos cancelados (el CHECK los rechazaría).
 - [ ] **T2 (P1, humano ~1,5 h / CC ~15 min)** — reglas — `turnoCancelado`, `fechaParaOrdenar`, `effectiveDate`
   exportada (`PdVisitFlow` deja su `eff()`), `todaySplit`, `currentVisit`, `ventanaAbierta`, `visitStateLabel`
   (`lib/visits.ts`); `COLUMNAS_FILA_PACIENTE` y `PdPatientRow`; `esNoVino` (`calendario.ts`) + tests
@@ -710,14 +720,12 @@ Cada una con la recomendada primero. Si dice «dale con lo recomendado», el pla
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | ISSUES_OPEN (PLAN) | 17 decisiones técnicas auto-decididas; barrido de lectores de `estimated_date` (~60 lugares); 15 hallazgos de la segunda opinión, 12 tomados y 3 resueltos de otra forma; 0 critical gaps; 6 preguntas de producto para el Director |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 17 decisiones técnicas auto-decididas; barrido de lectores de `estimated_date` (~60 lugares); 15 hallazgos de la segunda opinión, 12 tomados y 3 resueltos de otra forma; 0 critical gaps; 6 preguntas de producto, decididas por el Director con la recomendada (2026-10-16) |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
 - **CROSS-MODEL:** segunda opinión de un subagente Claude (Codex no está instalado). Sin tensión pendiente: la única
   discrepancia de fondo (dejar la cancelada en `proxima`) va al Director como P4.
-- **VERDICT:** ENG CLEARED salvo las decisiones de producto. Orden: 0161 en prod con su sonda en verde, después el
-  front.
+- **VERDICT:** ENG CLEARED — listo para implementar. Orden: 0161 en prod con su sonda en verde, después el front.
 
-**UNRESOLVED DECISIONS:**
-- P1 a P6, a decidir por el Director (cada una con la recomendada; con «dale con lo recomendado» no queda ninguna)
+NO UNRESOLVED DECISIONS

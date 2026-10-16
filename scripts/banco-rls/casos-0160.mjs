@@ -1,6 +1,6 @@
 // Banco · los casos de la 0160 (volver atrás una marca de otro día, y «Vino otro día» desde Concurrió).
-// Corre TODAS las migraciones reales, siembra los perfiles y arma una inscripción propia con dos visitas del
-// cronograma, como `casos-0158.mjs`.
+// Corre las migraciones reales HASTA LA 0160 (fijado al llegar la 0161, como los de la 0158 y la 0159),
+// siembra los perfiles y arma una inscripción propia con dos visitas del cronograma, como `casos-0158.mjs`.
 //
 //   node scripts/banco-rls/casos-0160.mjs
 //
@@ -11,7 +11,7 @@
 import { crearBase, comoPerfil } from './base.mjs'
 import { sembrar, PERFILES as P } from './sembrar.mjs'
 
-const db = await crearBase()
+const db = await crearBase({ hasta: 160 })
 await sembrar(db)
 const q = async (sql) => (await db.query(sql)).rows
 const HOY = `((now() at time zone 'America/Argentina/Buenos_Aires')::date)`
