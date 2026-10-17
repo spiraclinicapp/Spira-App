@@ -7,13 +7,13 @@ mover (no atendidas)», igual que un desfase de verdad.
 Revisado con `/plan-eng-review` el 2026-10-16, en modo «la recomendada» (preferencia del Director), con una segunda
 opinión independiente (subagente Claude; Codex no está en esta máquina) que cambió tres decisiones. Las decisiones
 técnicas van auto-decididas con su porqué; las de producto quedan como **preguntas abiertas** al final, cada una con
-la recomendación. **Las cinco, decididas por el Director el 2026-10-17 con la recomendada; implementado en la misma
-rama (T1, T2). Falta aplicar la 0163 y desplegar (T3).**
+la recomendación. **Las cinco, decididas por el Director el 2026-10-17 con la recomendada. En prod el 17: la #512
+(`8118a23`) y la 0163, aplicada y confirmada por la API sin sesión. Queda el QA con sesión del preview (T3).**
 
-> ⚠️ **Mientras tanto: no sincronizar los cuatro estudios de la prueba real** (LTS17231, ACT18301, 222714,
-> Victorion). El cruce del listado (`supabase/scripts/pacientes-prueba-real/generar.mjs`, aplicado el 2026-09-28) les
-> puso a las visitas pendientes **la fecha del listado del sitio**, con la ventana del cronograma. Un «Generar /
-> actualizar cronograma» hoy las devolvería todas a la fecha teórica. La consulta de «Medición» dice cuántas son.
+> ⚠️ **Hasta la 0163 (ya aplicada el 17): no sincronizar los cuatro estudios de la prueba real** (LTS17231, ACT18301,
+> 222714, Victorion). El cruce del listado (`supabase/scripts/pacientes-prueba-real/generar.mjs`, aplicado el
+> 2026-09-28) les puso a las visitas pendientes **la fecha del listado del sitio**, con la ventana del cronograma. Un
+> «Generar / actualizar cronograma» de antes de la 0163 las habría devuelto a la fecha teórica.
 
 ## Por qué pasa hoy
 
@@ -565,8 +565,12 @@ dejan las alternativas a la vista para saber qué se descartó.
 - [ ] **T3 (P1)** — verificación — la 0163 aplicada con su sonda en verde y la API sin sesión; QA con sesión del preview
   del sync (`p_apply = false`) sobre TEST-QA con una visita reprogramada, y en un estudio real **sólo el preview**
   - Verificar: el modal muestra «conservan la fecha que se les dio a mano»; nada se escribe en estudios reales
-- [x] **T4 (P3)** — docs — `TODOS.md`: la entrada dice que está hecho y lo que falta (aplicar y desplegar); este plan
-  con sus casillas. Se borra de `TODOS.md` con el cierre de la jornada en que se aplique.
+  - Hecho (2026-10-17): la 0163, aplicada por el Director con la copia sin comentarios. La API sin sesión ve la columna
+    y `cronograma_por_sincronizar` (`42501`, con controles inventados en `42703` y `PGRST202`), y el Director vio en el
+    editor el `prosrc` de las dos funciones re-declaradas con `fecha_del_cronograma` (`true`). El bundle de prod
+    (`8118a23`) trae el modal nuevo. **Falta el QA con sesión del preview.**
+- [x] **T4 (P3)** — docs — la entrada de `TODOS.md`, borrada en el cierre del 17 (bitácora del 16, §21-§23); este plan
+  con sus casillas.
 
 ## GSTACK REVIEW REPORT
 

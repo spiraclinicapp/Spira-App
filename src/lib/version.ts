@@ -35,6 +35,7 @@ export const SPIRA_VERSION = {
   channel: 'estable',
   /** Novedades, de la más nueva a la más vieja. */
   changelog: [
+    { version: '0.116', text: 'Sincronizar el cronograma conserva las fechas dadas a mano y avisa cuáles quedan fuera de ventana.' },
     { version: '0.115', text: 'Visitas cancela un turno sin borrar la visita del cronograma; Coordinación suma tres tutoriales.' },
     { version: '0.114', text: 'Visitas deja deshacer una marca de otro día, confirmándolo, y Farmacia suma dos tutoriales en video.' },
     { version: '0.113', text: 'Visitas carga una visita olvidada en su día, sin duplicarla, y el tutorial de dispensar estrena voz.' },
