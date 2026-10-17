@@ -35,11 +35,17 @@ function sinMarcasDespuesDe(fin: string): string {
  *     no existe como columna y nunca decidió de qué día es una visita.
  *
  * Las marcas operativas (llegada, fin de atención, salida) van aparte: son cosas que PASARON ese día,
- * y el día en que pasaron es el suyo. SALVO QUE SEAN POSTERIORES A LA FECHA REALIZADA (2026-10-14):
- * una visita del 8 que se cargó el 14 con los botones tiene las tres marcas del 14, y salía también
- * ese día. Una marca así no dice cuándo vino el paciente sino cuándo se apretó el botón
- * (`marcaTardia`, `lib/visits.ts`; plan `docs/plan-visita-cargada-otro-dia.md`). Por eso cada marca
- * pide, además, que la visita no tenga fecha realizada o que sea de ese día o posterior.
+ * y el día en que pasaron es el suyo. PERO SÓLO MIENTRAS LA VISITA NO TIENE FECHA REALIZADA: con ella,
+ * la visita es de ese día y de ningún otro, y ya entra por `real_date.eq`. Una marca de otro día
+ * no la duplica:
+ *   · ni POSTERIOR (2026-10-14): la visita del 8 cargada el 14 con los botones tiene las tres marcas del
+ *     14 y salía también ese día. Dicen cuándo se apretó el botón, no cuándo vino (`marcaTardia`,
+ *     `lib/visits.ts`; plan `docs/plan-visita-cargada-otro-dia.md`);
+ *   · ni ANTERIOR (2026-10-16): la del 10 a la que se le corrigió la fecha realizada al 13 salía el 10,
+ *     por la llegada, y el 13. La 0158 había dejado pasar las anteriores a propósito («una llegada la
+ *     noche antes del inicio sigue contando su día»), y era la puerta por la que se duplicaba.
+ * Sin fecha realizada las marcas son lo único que dice dónde está la visita (Concurrió, o «Volver» desde
+ * Inicio de atención, que la borra): ahí siguen mandando.
  */
 export function motivosDelDia(date: string): string[] {
   // Las marcas son timestamptz (UTC) y `date` es el día LOCAL (Argentina, UTC−3). Hay que anclar
@@ -47,22 +53,13 @@ export function motivosDelDia(date: string): string[] {
   // noche anterior (bug «visitas pegadas»). AR no tiene horario de verano → -03:00 es fijo.
   const dayStart = `${date}T00:00:00-03:00`
   const dayEnd = `${date}T23:59:59.999-03:00`
-  const noTardia = noEsTardiaPara(date)
   return [
     `and(real_date.is.null,estimated_date.eq.${date},${sinMarcasDespuesDe(dayEnd)})`,
     `real_date.eq.${date}`,
-    `and(arrived_at.gte.${dayStart},arrived_at.lte.${dayEnd},${noTardia})`,
-    `and(ready_at.gte.${dayStart},ready_at.lte.${dayEnd},${noTardia})`,
-    `and(left_at.gte.${dayStart},left_at.lte.${dayEnd},${noTardia})`,
+    `and(arrived_at.gte.${dayStart},arrived_at.lte.${dayEnd},real_date.is.null)`,
+    `and(ready_at.gte.${dayStart},ready_at.lte.${dayEnd},real_date.is.null)`,
+    `and(left_at.gte.${dayStart},left_at.lte.${dayEnd},real_date.is.null)`,
   ]
-}
-
-/**
- * Una marca del día `dia` sólo pone la visita en ese día si no es una carga tardía: la visita no tiene
- * fecha realizada, o la tiene ese día o después. Es `marcaTardia` del lado de la base.
- */
-function noEsTardiaPara(dia: string): string {
-  return `or(real_date.is.null,real_date.gte.${dia})`
 }
 
 /**
@@ -78,10 +75,8 @@ function noEsTardiaPara(dia: string): string {
 export function motivosDelRango(desde: string, hasta: string): string[] {
   const inicio = `${desde}T00:00:00-03:00`
   const fin = `${hasta}T23:59:59.999-03:00`
-  // Las marcas tardías, igual: con el PRIMER día del rango. Es un superconjunto (una marca del jueves
-  // con fecha realizada del martes entra si el rango arranca el lunes) y `diasDeLaVisita` la saca de
-  // la celda del jueves con la regla fina.
-  const noTardia = noEsTardiaPara(desde)
+  // Las marcas, igual que en un día: sólo sin fecha realizada. Con ella la visita entra por su fecha si
+  // cae en el rango, y si no, no entra (2026-10-16).
   return [
     // El rango no puede comparar cada marca con SU citación (PostgREST no compara dos columnas): pide
     // las que no tienen marcas pasado el último día. Es un superconjunto exacto: si una marca cae
@@ -89,8 +84,8 @@ export function motivosDelRango(desde: string, hasta: string): string[] {
     // lo decide `diasDeLaVisita` con la regla fina.
     `and(real_date.is.null,estimated_date.gte.${desde},estimated_date.lte.${hasta},${sinMarcasDespuesDe(fin)})`,
     `and(real_date.gte.${desde},real_date.lte.${hasta})`,
-    `and(arrived_at.gte.${inicio},arrived_at.lte.${fin},${noTardia})`,
-    `and(ready_at.gte.${inicio},ready_at.lte.${fin},${noTardia})`,
-    `and(left_at.gte.${inicio},left_at.lte.${fin},${noTardia})`,
+    `and(arrived_at.gte.${inicio},arrived_at.lte.${fin},real_date.is.null)`,
+    `and(ready_at.gte.${inicio},ready_at.lte.${fin},real_date.is.null)`,
+    `and(left_at.gte.${inicio},left_at.lte.${fin},real_date.is.null)`,
   ]
 }
