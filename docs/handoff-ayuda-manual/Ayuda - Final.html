@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · Ayuda en la app v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#FFFFFF;--muted:#7C8C87;--faint:#A6B0AC;--ink-soft:#556966;--line:#E4DECF;--line-2:#D8CBB0;--on-accent:#F4F1EA;--mint:#E6EFEC;--fd:'Schibsted Grotesk',system-ui,sans-serif;--ft:'Inter',system-ui,sans-serif;--fm:'JetBrains Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:#EDE9DF;color:var(--ink);font-family:var(--ft);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--primary);text-decoration:none}a:hover{color:var(--ink)}
+button{font-family:inherit;color:inherit;cursor:pointer}
+.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.ui{font-weight:600;color:var(--ink);background:#F1EDE3;border:1px solid var(--line);border-radius:5px;padding:0 5px;font-size:.93em;white-space:nowrap}
+.top{max-width:1400px;margin:0 auto;padding:20px 24px 14px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.top h1{margin:0;font:700 20px/1.2 var(--fd);letter-spacing:-.01em;flex-basis:100%}
+.ctl{display:flex;align-items:center;gap:8px}
+.ctl>span{font-size:12px;color:var(--muted);font-weight:600}
+.seg{display:flex;gap:3px;padding:3px;background:var(--white);border:1px solid var(--line-2);border-radius:10px;flex-wrap:wrap}
+.seg button{white-space:nowrap;border:0;background:transparent;padding:5px 10px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ink-soft)}
+.seg button.on{background:var(--ink);color:var(--on-accent)}
+.note{font-size:12.8px;color:var(--ink-soft);flex-basis:100%;max-width:100ch;margin:0}
+.note b{color:var(--ink)}
+
+.app{max-width:1400px;margin:0 auto 40px;height:780px;border:1px solid var(--line-2);border-radius:14px;overflow:hidden;position:relative;background:var(--paper);display:grid;grid-template-rows:60px minmax(0,1fr)}
+.bar{background:var(--white);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:14px;padding:0 20px}
+.logo{font:700 19px/1 var(--fd);display:flex;align-items:center;gap:8px}
+.logo i{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 50% 100%,#2E7D74 0 40%,transparent 41%)}
+.vsep{width:1px;height:24px;background:var(--line)}
+.modname{font:700 16px/1 var(--fd)}
+.gsearch{margin-left:auto;height:36px;width:210px;border:1px solid var(--line-2);border-radius:9px;display:flex;align-items:center;gap:8px;padding:0 10px;color:var(--muted);font-size:13px}
+.avatar{display:flex;align-items:center;gap:8px;font-weight:600;font-size:13.5px}
+.avatar b{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--primary);display:grid;place-items:center;font-size:10.5px;color:var(--primary)}
+.body{display:grid;grid-template-columns:62px 210px minmax(0,1fr);min-height:0}
+.rail{background:var(--white);border-right:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:10px;padding:14px 0}
+.rail span{width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--ink-soft)}
+.rail span.on{background:var(--mint);color:var(--primary)}
+.rail .help{margin-top:auto;border:0;background:transparent;width:38px;height:38px;border-radius:10px;display:grid;place-items:center;color:var(--ink-soft)}
+.rail .help:hover{background:var(--paper)}
+.side{background:var(--surface);border-right:1px solid var(--line);padding:18px 12px}
+.side .k{font:800 10.5px/1 var(--fd);letter-spacing:.12em;color:var(--muted);margin:0 8px 12px}
+.side .it{padding:7px 10px;border-radius:8px;font-size:13.5px;font-weight:600;margin-bottom:2px}
+.side .it small{display:block;font-size:11.5px;font-weight:400;color:var(--muted)}
+.side .it.on{background:#E3E8E1}
+.main{padding:12px 26px;min-width:0}.main .emp{margin-top:12px}
+.crumb{font-size:12px;color:var(--muted)}.crumb b{color:var(--ink);font-weight:600}
+.th{display:flex;align-items:center;gap:10px;margin-top:2px;flex-wrap:wrap}
+.th h2{margin:0;font:700 25px/1.15 var(--fd);letter-spacing:-.02em}
+.btn{white-space:nowrap;margin-left:auto;height:38px;padding:0 15px;border-radius:9px;border:0;background:var(--primary);color:var(--on-accent);font:700 13.5px/1 var(--fd)}
+.bj{height:16px;display:flex;align-items:center;padding-left:1px}.bd{display:flex;align-items:center;gap:14px;font:400 12.5px/16px var(--ft);color:var(--muted);white-space:nowrap}.bd button{border:0;background:transparent;padding:0;font:500 12.5px/16px var(--ft);color:var(--ink-soft);display:inline-flex;align-items:center;gap:5px;text-decoration:underline dotted var(--faint);text-underline-offset:3px}.bd button svg{width:14px;height:14px}.bd button:hover{color:var(--ink)}
+.lk{position:relative;display:inline-flex}.lk:hover .globo,.lk:focus-within .globo{display:block}
+.globo{position:absolute;z-index:5;top:26px;left:-14px;width:340px;background:var(--white);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 14px 34px rgba(20,48,46,.16);padding:14px;display:none;white-space:normal}.globo::before{content:"";position:absolute;top:-6px;left:18px;width:10px;height:10px;background:var(--white);border-left:1px solid var(--line-2);border-top:1px solid var(--line-2);transform:rotate(45deg)}.globo::after{content:"";position:absolute;left:0;right:0;top:-14px;height:14px}.globo .gt{font:700 14.5px/1.3 var(--fd);color:var(--ink)}.globo .gx{font-size:12.8px;color:var(--ink-soft);margin-top:3px;line-height:1.5}.globo .vid{margin-top:10px}.globo .gf{display:flex;align-items:center;margin-top:9px;font-size:12px;color:var(--muted)}.globo .gf button{margin-left:auto;border:0;background:transparent;padding:0;font-weight:600;font-size:12px;color:var(--primary);text-decoration:none}
+.emp{margin-top:22px;background:var(--white);border:1px solid var(--line);border-radius:12px;height:300px;display:grid;place-items:center;text-align:center;color:var(--ink-soft);font-size:13px}
+.emp b{display:block;font:700 15px/1.3 var(--fd);color:var(--ink)}
+
+.disk{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;position:relative;border:0;padding:0}
+.disk svg{width:10px;height:10px;fill:var(--on-accent);margin-left:2px}
+.disk.sm{width:20px;height:20px}.disk.sm svg{width:8px;height:8px}
+.disk.lg{width:54px;height:54px;box-shadow:0 6px 18px rgba(15,95,87,.35)}.disk.lg svg{width:18px;height:18px;margin-left:3px}
+.disk.new::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--primary);animation:halo 2.4s ease-out infinite}
+@keyframes halo{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(1.85);opacity:0}}
+.disk.seen{background:var(--white);border:1.5px solid var(--primary)}.disk.seen svg{fill:var(--primary)}
+.dur{font-family:var(--fm);font-size:11px;color:var(--muted)}
+.txtic{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line-2);display:grid;place-items:center;color:var(--muted)}
+.txtic svg{width:11px;height:11px}
+
+.scrim{position:absolute;inset:0;background:rgba(20,48,46,.22);opacity:0;pointer-events:none;transition:opacity .2s}
+.app.open .scrim{opacity:1;pointer-events:auto}
+.panel{position:absolute;top:0;right:0;bottom:0;width:440px;max-width:100%;background:var(--white);border-left:1px solid var(--line);box-shadow:-14px 0 34px rgba(20,48,46,.14);display:flex;flex-direction:column;transform:translateX(100%);transition:transform .25s ease}
+.app.open .panel{transform:none}
+.ph{padding:16px 20px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--line);position:relative}
+.ph.tabs{padding-bottom:0}
+.pt{display:flex;align-items:center;gap:8px;min-height:30px}
+.pt h3{margin:0;font:700 21px/1.1 var(--fd);letter-spacing:-.01em}
+.mbtn{margin-left:auto;display:flex;align-items:center;gap:7px;height:34px;padding:0 13px;border:0;border-radius:9px;font:700 13px/1 var(--fd);color:var(--on-accent);background:var(--ink);white-space:nowrap}.mbtn:hover{background:#2A4A47;color:var(--on-accent)}.mbtn+.x{margin-left:0}
+.x{margin-left:auto;border:0;background:transparent;color:var(--ink-soft);padding:4px;display:grid}
+.search{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:10px;color:var(--muted)}
+.search input{border:0;outline:0;flex:1;font:inherit;font-size:13.5px;color:var(--ink);background:transparent;min-width:0}
+.search:focus-within{border-color:var(--muted)}
+.search.big{height:46px;border-radius:12px}
+
+/* switch: chips */
+.sw-chips{display:flex;gap:6px}
+.sw-chips button{flex:1 1 auto;padding:5px 8px !important;gap:5px !important;min-width:0;justify-content:center;white-space:nowrap;border:1px solid var(--line-2);background:var(--white);border-radius:999px;padding:5px 11px;font-size:12.5px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;gap:6px}
+.sw-chips button.on{background:var(--ink);border-color:var(--ink);color:var(--on-accent)}.sw-chips button.on svg{color:var(--on-accent) !important}
+.here{width:6px;height:6px;border-radius:50%;background:#2E7D74;flex:0 0 auto}
+/* switch: segmentado */
+.sw-seg{display:flex;padding:3px;background:var(--paper);border:1px solid var(--line);border-radius:10px}
+.sw-seg button{flex:1 1 auto;min-width:0;border:0;background:transparent;padding:7px 4px;border-radius:7px;font-size:12.5px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.sw-seg button.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(20,48,46,.12)}
+/* switch: pestañas */
+.sw-tabs{display:flex;gap:0;margin:-2px -20px 0;padding:0 8px}
+.sw-tabs button{flex:1 1 auto;gap:5px !important;min-width:0;justify-content:center;border:0;background:transparent;padding:8px 0 10px;font-size:13px;font-weight:600;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.sw-tabs button.on{color:var(--ink);border-bottom-color:var(--primary)}
+/* switch: desplegable */
+.dd{display:flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--white);border-radius:9px;height:32px;padding:0 9px 0 10px;font:600 13px/1 var(--ft);color:var(--ink)}
+.dd:hover{background:var(--paper)}
+.ddm{position:absolute;left:20px;top:56px;width:280px;background:var(--white);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 14px 34px rgba(20,48,46,.16);padding:6px;z-index:5}
+.ddm button{width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border:0;background:transparent;border-radius:8px;text-align:left;font-size:13.5px;font-weight:600}
+.ddm button:hover{background:var(--paper)}
+.ddm button.on{background:var(--mint)}
+.ddm small{margin-left:auto;font-weight:500;font-size:12px;color:var(--muted)}
+
+.pb{flex:1;overflow:auto;padding:4px 20px 20px}
+.pb>*{animation:in .2s ease}
+@keyframes in{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.pf{border-top:1px solid var(--line);padding:11px 20px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+.pf a{font-weight:600}
+.pf .r{margin-left:auto;display:flex;align-items:center;gap:5px}
+.sec{font:800 10.5px/1 var(--fd);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:18px 0 8px;display:flex;justify-content:space-between;align-items:baseline}
+.sec span{font:500 11.5px/1 var(--ft);letter-spacing:0;text-transform:none}
+
+/* vista módulo (1b) */
+.vid{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;background:repeating-linear-gradient(135deg,#EFEBE1 0 10px,#F6F3EC 10px 20px)}
+.vid .lbl{position:absolute;left:10px;top:9px;font-family:var(--fm);font-size:10.5px;color:var(--muted)}
+.vid .center{position:absolute;inset:0;display:grid;place-items:center}
+.vid .cd{position:absolute;right:8px;bottom:8px;background:rgba(20,48,46,.82);color:var(--on-accent);font-family:var(--fm);font-size:11px;padding:2px 6px;border-radius:5px}
+.vid .barp{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(20,48,46,.12)}
+.vid .barp i{display:block;height:100%;background:var(--primary);transition:width .3s}
+.vid.playing .center .disk{opacity:0;transform:scale(.6);transition:.2s}
+.vid.playing::before{content:"reproduciendo…";position:absolute;left:10px;bottom:12px;font-family:var(--fm);font-size:10.5px;color:var(--primary)}
+.vtitle{font:700 15px/1.3 var(--fd);margin:12px 0 4px}
+.chap{display:flex;gap:10px;padding:9px 8px;margin:0 -8px;border-radius:8px;align-items:flex-start;border:0;background:transparent;width:calc(100% + 16px);text-align:left}
+.chap:hover{background:var(--paper)}
+.chap.on{background:var(--mint)}
+.chap .n{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line-2);font:700 10.5px/17px var(--fd);text-align:center;color:var(--ink-soft)}
+.chap.on .n{background:var(--primary);border-color:var(--primary);color:var(--on-accent)}
+.chap .ct{flex:1;font-size:13px;color:var(--ink-soft);line-height:1.5}
+.chap .ct b.h{display:block;color:var(--ink);font-size:13.4px;margin-bottom:1px}
+.q{border-bottom:1px solid var(--line)}
+.qb{width:100%;display:flex;align-items:center;gap:10px;padding:12px 0;border:0;background:transparent;text-align:left;font-weight:600;font-size:13.6px;color:var(--ink)}
+.qb>span{flex:1}
+.qb .chev{color:var(--faint);transition:transform .15s}
+.q.open .chev{transform:rotate(180deg)}
+.qa{display:none;padding:0 0 13px;font-size:13.2px;color:var(--ink-soft);line-height:1.6}
+.q.open .qa{display:block}
+.qa p{margin:0 0 8px}
+.jump{display:inline-flex;align-items:center;gap:6px;font-weight:600;font-size:12.3px;color:var(--primary);border:0;background:transparent;padding:0}
+.tcard{display:flex;gap:12px;padding:10px 0;border:0;border-bottom:1px solid var(--line);background:transparent;width:100%;text-align:left;align-items:center}
+.tcard:hover .tt{color:var(--primary)}
+.thumb{flex:0 0 auto;width:88px;aspect-ratio:16/10;border-radius:8px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,#EFEBE1 0 7px,#F6F3EC 7px 14px);position:relative;display:grid;place-items:center}
+.thumb .cd{position:absolute;right:4px;bottom:4px;background:rgba(20,48,46,.82);color:var(--on-accent);font-family:var(--fm);font-size:10px;padding:1px 4px;border-radius:4px}
+.tt{font-weight:600;font-size:13.6px;line-height:1.35}
+.ts{font-size:12.3px;color:var(--ink-soft);margin-top:2px;line-height:1.45}
+.tm{font-size:11.5px;color:var(--muted);margin-top:3px}
+
+/* inicio B: módulos */
+.here-card{display:flex;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);align-items:center;width:100%;text-align:left;margin-top:14px}
+.here-card:hover{border-color:var(--line-2)}
+.mcard{width:100%;text-align:left;border:1px solid var(--line);background:var(--white);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px;margin-bottom:10px}
+.mcard:hover{background:var(--surface)}
+.mcard .mh{display:flex;align-items:center;gap:10px}
+.mi{width:34px;height:34px;border-radius:9px;background:var(--mint);color:var(--primary);display:grid;place-items:center;flex:0 0 auto}
+.mn{font:700 15px/1.2 var(--fd)}
+.ms{font-size:12px;color:var(--muted)}
+.prog{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--primary)}
+.mq{font-size:12.6px;color:var(--ink-soft);display:flex;flex-direction:column;gap:3px}
+.mq span::before{content:"— ";color:var(--faint)}
+/* inicio C: preguntas */
+.hq{display:flex;align-items:center;gap:11px;padding:10px 0;border:0;border-bottom:1px solid var(--line);background:transparent;width:100%;text-align:left}
+.hq:hover .tt{color:var(--primary)}
+.hq .tt{flex:1;font-size:13.5px}
+.hq .mt{font-size:11.5px;color:var(--muted);white-space:nowrap}
+.mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mtile{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:12px 10px;text-align:left;display:flex;flex-direction:column;gap:8px}
+.mtile:hover{background:var(--paper)}
+.mtile .mn{font-size:13.5px}
+.mrow{width:100%;display:flex;align-items:center;gap:12px;padding:12px 0;border:0;border-bottom:1px solid var(--line);background:transparent;text-align:left}.mrow:hover .mn{color:var(--primary)}
+.manual-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--line);border-radius:12px;margin-top:18px;color:var(--ink)}.manual-row:hover{background:var(--surface);color:var(--ink)}
+.bk{width:40px;height:40px;border-radius:10px;background:#F1EDE3;display:grid;place-items:center;color:var(--ink);flex:0 0 auto}.bk svg{width:20px;height:20px}
+.manual-band{display:flex;gap:14px;align-items:center;padding:16px;border-radius:12px;background:#F1EDE3;margin-top:18px}
+.manual-band .bk{background:var(--white)}
+.mb-btn{margin-left:auto;flex:0 0 auto;height:34px;padding:0 13px;border-radius:9px;background:var(--ink);color:var(--on-accent);font:700 12.5px/34px var(--fd);white-space:nowrap}.mb-btn:hover{color:var(--on-accent);background:var(--primary)}
+.ix-h{display:flex;align-items:center;gap:8px;margin:20px 0 4px}.ix-h .mn{font-size:14px;flex:1}.ix-h button{border:0;background:transparent;font-size:12.3px;font-weight:600;color:var(--primary);padding:0}
+.ix{display:flex;align-items:center;gap:10px;padding:7px 0;border:0;background:transparent;width:100%;text-align:left;font-size:13.2px;color:var(--ink-soft)}.ix:hover{color:var(--ink)}.ix .dur{margin-left:auto}
+.mfoot{display:flex;align-items:center;gap:12px;margin:0;padding:12px 20px;background:#F1EDE3;border-top:1px solid var(--line);color:var(--ink)}.mfoot:hover{background:#ECE7DB;color:var(--ink)}
+.inman{display:inline-flex;align-items:center;gap:6px;font-size:12.3px;font-weight:600;color:var(--ink-soft)}.inman:hover{color:var(--ink)}.inman svg{width:14px;height:14px}
+.empty-s{padding:30px 0;text-align:center;color:var(--muted);font-size:13px}
+mark{background:var(--mint);color:inherit;border-radius:3px;padding:0 1px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="play" viewBox="0 0 10 10"><path d="M1.5 1 9 5 1.5 9z"></path></symbol></defs></svg>
+<div class="top"><h1>Ayuda · versión final</h1>
+<div class="ctl"><span>Estás en</span><div class="seg" data-ctl="w"><button data-v="pharma" class="on">Dispensaciones</button><button data-v="track">Visitas</button><button data-v="inicio">Inicio</button></div></div>
+<p class="note" id="note"></p></div>
+
+<div class="app open" id="app">
+<div class="bar"><span class="logo"><i></i>Spira</span><span class="vsep"></span><span class="modname" id="modname">Farmacia</span><span class="gsearch"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>Buscar…</span><span class="avatar"><b>SC</b>Spira Clinic</span></div>
+<div class="body">
+<div class="rail"><span><svg class="ico" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"></rect><rect x="13" y="4" width="7" height="7" rx="1.5"></rect><rect x="4" y="13" width="7" height="7" rx="1.5"></rect><rect x="13" y="13" width="7" height="7" rx="1.5"></rect></svg></span><span id="r-track"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"></path></svg></span><span id="r-pharma" class="on"><svg class="ico" viewBox="0 0 24 24"><path d="m10.5 20.5-7-7a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7zM8.5 8.5l7 7"></path></svg></span>
+<button class="help" id="openHelp" title="Ayuda"><svg class="ico" viewBox="0 0 24 24" style="width:20px;height:20px"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4M12 17h.01"></path></svg></button></div>
+<div class="side" id="side"></div>
+<div class="main" id="main"></div>
+</div>
+<div class="scrim" id="scrim"></div>
+<aside class="panel" aria-label="Ayuda">
+<div class="ph" id="ph"></div>
+<div class="pb" id="pb"></div>
+<div id="mf"></div><div class="pf"><svg class="ico" viewBox="0 0 24 24"><path d="M4 5h16v11H8l-4 4z"></path></svg>¿No está tu duda? <a href="#">Contanos</a></div>
+</aside>
+</div>
+
+<script>
+const P='<svg><use href="#play"></use></svg>';
+const CD='<svg class="ico chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg>';
+const CH='<svg class="ico" style="color:var(--faint);margin-left:auto" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"></path></svg>';
+const TXT='<span class="txtic"><svg class="ico" viewBox="0 0 24 24"><path d="M5 7h14M5 12h14M5 17h9"></path></svg></span>';
+const MODS={general:{n:'Primeros pasos',c:'General',icon:'<circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l3 2"></path>'},track:{n:'Coordinación',c:'Coordinación',icon:'<path d="M3 12h4l3-7 4 14 3-7h4"></path>'},pharma:{n:'Farmacia',c:'Farmacia',icon:'<path d="m10.5 20.5-7-7a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7zM8.5 8.5l7 7"></path>'}};
+const ORDER=['general','track','pharma'];
+const EMP={home:['#14302E','<path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"></path>'],general:['#B07A1E','<path d="M5 21V4h11l-2 4 2 4H5"></path>'],track:['#2E7D74','<rect x="4" y="5" width="16" height="15" rx="3"></rect><path d="M8 3v4M16 3v4M9 13.5l2 2 4-4"></path>'],pharma:['#3F7A3A','<path d="m10.5 20.5-7-7a5 5 0 0 1 7-7l7 7a5 5 0 0 1-7 7zM8.5 8.5l7 7"></path>']};
+const EM=new Proxy({},{get:(_,k)=>`<svg class="ico" viewBox="0 0 24 24" style="width:15px;height:15px;stroke-width:2;color:${EMP[k][0]}">${EMP[k][1]}</svg>`});
+const sorted=()=>ORDER.slice();
+const T=[
+{id:'buscar',m:'general',t:'Buscar en Spira',s:'Pacientes, protocolos y medicamentos',d:'0:28',seen:true,ch:[['Abrir el buscador','Tocá «Buscar…» o apretá Ctrl K (⌘ K en Mac).','0:00'],['Filtrar por tipo','Con los chips te quedás con pacientes, protocolos o medicamentos.','0:09'],['Abrir el resultado','Un paciente abre su ficha; un medicamento te lleva a Stock.','0:19']],q:[['¿Puedo buscar visitas?','Todavía no: las visitas no se buscan desde el buscador global.',null]]},
+{id:'llegada',m:'track',view:'Visitas',t:'Marcar que llegó un paciente',s:'De agendada a «Concurrió al centro»',d:'0:34',ch:[['Buscar la visita','En Visitas, encontrá al paciente en el día.','0:00'],['Marcar llegada','Tocá «Marcar llegada» en su fila o en el detalle.','0:08'],['Ver el cambio','Pasa a «Concurrió al centro», aparece la hora y el botón cambia a «Iniciar atención».','0:20']],q:[['¿Y si la visita no es de hoy?','Spira te pide confirmar antes de marcar la llegada.',null],['¿Puedo deshacerlo?','Sí, desde el menú del botón de etapa volvés a la etapa anterior.',2]]},
+{id:'agendar',m:'track',view:'Visitas',t:'Agendar o reprogramar una visita',s:'Desde la ficha o desde Visitas',d:'0:58',ch:[['Agendar','«Agendar visita» en la ficha, o «Agregar visita» en la vista Día.','0:00'],['Elegir qué vas a hacer','Visita del estudio, Retest, VNP o continuar pendientes.','0:14'],['Reprogramar','«Reprogramar», nueva fecha y «Guardar fecha».','0:31'],['Fuera de ventana','Spira avisa; tocá «Confirmar igual».','0:47']],q:[['¿Se puede reprogramar una visita realizada?','No: solo una visita que todavía no tiene fecha real.',null]]},
+{id:'pendientes',m:'track',t:'Resolver Pendientes',s:'Agendar, documentar desviación o descartar',d:'1:12',ch:[['Qué junta','Ventanas vencidas, visitas por reprogramar, procedimientos sin marcar, IP sin entregar.','0:00'],['Resolver','Tocá el pendiente o su botón: «Agendar» o «Documentar desviación».','0:22'],['Descartar','La «X» lo descarta con un motivo; se restaura desde «Ver descartados».','0:48']],q:[['¿Quién puede descartar?','Quien coordina ese estudio, o gerencia.',null]]},
+{id:'dispensar',m:'pharma',view:'Dispensaciones',t:'Dispensar una medicación',s:'Del pedido a la entrega',d:'0:41',ch:[['Tomar el pedido','Llega de Coordinación en Solicitadas, o lo cargás con «Nueva dispensación».','0:00'],['Preparar y escanear','«Preparar» y pasá cada unidad por el lector.','0:12'],['Marcar lista para retirar','Se genera el comprobante; Spira asigna el lote y descuenta el stock.','0:26'],['Entregar','Cuando la retira, «Marcar como entregado».','0:36']],q:[['¿Quién elige el lote que se entrega?','Spira, al marcarla lista: el que vence primero. No se escanea el lote.',2]]},
+{id:'recepcion',m:'pharma',view:'Recepción',t:'Registrar una recepción',s:'Escanear EAN, lote y vencimiento',d:'1:05',seen:true,ch:[['Nueva recepción','«Registrar recepción» y elegí el protocolo.','0:00'],['Escanear cajas','El EAN identifica el producto.','0:18'],['Lote y vencimiento','Confirmalos y tocá «Guardar».','0:44']],q:[]},
+{id:'reposicion',m:'pharma',view:'Reposición',t:'Pedir reposición',s:'Armar el pedido por renglón',d:'0:52',ch:[['Nuevo pedido','Desde Reposición, «Nuevo pedido».','0:00'],['Renglones','Medicamento y cantidad.','0:20']],q:[]}];
+const Q=[
+{id:'feedback',m:'general',t:'¿Cómo aviso un problema o sugiero una mejora?',a:'Tocá el botón «i» al pie de la barra de la izquierda y elegí «Dar feedback», o apretá Ctrl+Shift+F. Elegí Sugerencia, Problema o Idea, escribí el mensaje sin datos de pacientes y tocá «Enviar feedback».'},
+{id:'no-veo',m:'general',t:'¿Por qué no veo un módulo, un estudio o un paciente?',a:'En la barra de la izquierda aparecen solo los módulos que tenés habilitados. En Coordinación ves los pacientes de los estudios que tenés asignados. Si te falta algo, pedíselo a quien coordina tu módulo.'},
+{id:'campana',m:'general',t:'¿Qué significa el punto de la campana?',a:'Que hay notificaciones que todavía no viste; toma el color del aviso más importante.'},
+{id:'medico',m:'track',t:'¿Qué es «Para ver médico»?',a:'La cola de pacientes que están en el centro y necesitan ver al médico. Se suma a alguien desde Visitas con «Atención médica». Cuando el médico lo atiende, tocá «Marcar visto».'},
+{id:'escaneo',m:'pharma',t:'¿Qué pasa si el código escaneado no corresponde?',a:'El escaneo no se cuenta y Spira te dice por qué. Si escaneaste algo por error, tocá «Cancelar» en ese renglón; si hay que cambiar el medicamento, usá «Sustituir».'},
+{id:'farm-estudios',m:'pharma',t:'¿Por qué no veo un estudio?',a:'En Farmacia, por defecto, ves todos los estudios, aunque se te puede acotar a algunos.'}];
+const POP=[['t','dispensar'],['q','no-veo'],['t','llegada'],['q','escaneo'],['t','agendar'],['q','feedback']];
+const WHERE={pharma:{mod:'pharma',view:'Dispensaciones',side:[['Estudios y pacientes','Información de pacientes'],['Recepción','Ingreso de medicación'],['Stock','Inventario de medicación'],['Dispensaciones','Entrega de medicación'],['Reposición','Pedidos de medicación'],['Estadísticas','Los números del período']],empty:['Sin dispensaciones','Cuando Coordinación solicite una dispensación desde una visita, aparece acá.'],act:'+ Nueva dispensación'},
+track:{mod:'track',view:'Visitas',side:[['Resumen','Cómo viene el día'],['Estudios y pacientes','Información de pacientes'],['Visitas','Las visitas de hoy'],['Para ver médico','Cola de atención'],['Pendientes','Lo que hay que resolver'],['Reportes','Informes por evolucionar']],empty:['2 visitas hoy','La lista de visitas del día.'],act:'+ Agregar visita'},
+inicio:{mod:null,view:'Inicio',side:[],empty:['Inicio','Tus módulos.']}};
+const NOTES={L:'<b>A · Lista simple.</b> El tutorial de esta pantalla, los módulos como una lista plana y el manual como una fila propia.',F:'<b>B · Destacado.</b> El video de esta pantalla grande y listo para dar play, el manual como franja destacada y las preguntas más consultadas.',I:'<b>C · Índice.</b> El inicio funciona como el índice del manual: cada módulo con sus tutoriales y preguntas a la vista, y el manual completo arriba.',A:'<b>A · Abre en el módulo.</b> La Ayuda abre en el módulo donde estás, con el tutorial de esta pantalla cargado; «Inicio» queda como primera pestaña (con las tarjetas de B).',B:'<b>B · Tarjetas de módulo.</b> El inicio muestra el tutorial de esta pantalla y una tarjeta por módulo con cuánto viste y qué preguntas tiene.',C:'<b>C · Preguntas primero.</b> El inicio es el buscador grande y lo más consultado de todos los módulos, mezclando videos y respuestas en texto. Los módulos quedan abajo, compactos.'};
+let S={man:'C',em:'1',home:'C',sw:'tabs',w:'pharma',view:'mod',mod:'pharma',tut:'dispensar',chap:0,openQ:null,q:'',dd:false,playing:false};
+const seen=new Set(T.filter(t=>t.seen).map(t=>t.id));
+const $=id=>document.getElementById(id);
+const fmt=s=>s.replace(/«([^»]+)»/g,'<span class="ui">$1</span>');
+const dk=(t,c='sm')=>`<span class="disk ${c} ${seen.has(t.id)?'seen':'new'}">${P}</span>`;
+const curMod=()=>WHERE[S.w].mod||'general';
+function defTut(m){const w=WHERE[S.w];return (T.find(t=>t.m===m&&t.m===w.mod&&t.view===w.view)||T.find(t=>t.m===m&&!seen.has(t.id))||T.find(t=>t.m===m)).id}
+function goMod(m,tut){S.view='mod';S.mod=m;S.tut=tut||defTut(m);S.chap=0;S.playing=false;S.dd=false;clearInterval(timer)}
+function switcher(){const items=[['home','Inicio']];sorted().forEach(k=>items.push([k,MODS[k].n]));
+const on=k=>(k==='home'?S.view==='home':S.view==='mod'&&S.mod===k)?'on':'';
+const lab=(k,l)=>`${S.em==='1'?`<span aria-hidden="true">${EM[k]}</span>`:''}${l}`;
+if(S.sw==='chips')return `<div class="sw-chips">${items.map(([k,l])=>`<button data-sw="${k}" class="${on(k)}">${lab(k,l)}</button>`).join('')}</div>`;
+if(S.sw==='seg')return `<div class="sw-seg">${items.map(([k,l])=>`<button data-sw="${k}" class="${on(k)}">${lab(k,l)}</button>`).join('')}</div>`;
+if(S.sw==='tabs')return `<div class="sw-tabs">${items.map(([k,l])=>`<button data-sw="${k}" class="${on(k)}">${lab(k,l)}</button>`).join('')}</div>`;
+return ''}
+function head(){const drop=S.sw==='drop';const curLabel=S.view==='home'?'Inicio':MODS[S.mod].n;
+let h=`<div class="pt"><h3>Ayuda</h3>${drop?`<button class="dd" data-dd>${S.em==='1'?(S.view==='home'?EM.home:EM[S.mod])+' ':''}${curLabel}<svg class="ico" viewBox="0 0 24 24" style="width:14px;height:14px;color:var(--muted)"><path d="m6 9 6 6 6-6"></path></svg></button>`:''}${S.man==='A'?`<a class="mbtn" href="Manual de usuario.html">${BOOK}Manual de usuario</a>`:''}<button class="x" id="close" style="margin-left:${S.man==='A'?'4px':'auto'}"><svg class="ico" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"></path></svg></button></div>`;
+if(!(S.view==='home'&&S.home==='C'))h+=`<label class="search"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="q" placeholder="Buscá una pregunta o un tutorial" value="${S.q}"></label>`;
+if(!S.q)h+=switcher();
+if(drop&&S.dd){h+=`<div class="ddm">${true?`<button data-sw="home" class="${S.view==='home'?'on':''}">${S.em==='1'?EM.home+' ':''}Inicio</button>`:''}${sorted().map(k=>{const v=T.filter(t=>t.m===k);return `<button data-sw="${k}" class="${S.view==='mod'&&S.mod===k?'on':''}">${S.em==='1'?EM[k]:''}${MODS[k].n}<small>${v.filter(t=>seen.has(t.id)).length}/${v.length} vistos</small></button>`}).join('')}</div>`}
+$('ph').className='ph'+(S.sw==='tabs'&&!S.q?' tabs':'');$('ph').innerHTML=h;
+const i=$('q');if(i){i.oninput=e=>{S.q=e.target.value;const pos=e.target.selectionStart;render();const n=$('q');if(n){n.focus();n.setSelectionRange(pos,pos)}}}}
+function modView(){const m=S.mod,t=T.find(x=>x.id===S.tut),pct=Math.round(S.chap/t.ch.length*100);
+let h=`<div class="sec">${t.view||MODS[m].n}<span>${t.d}</span></div>
+<div class="vid${S.playing?' playing':''}"><span class="lbl">captura · ${t.view||MODS[m].n}</span><div class="center"><button class="disk lg ${seen.has(t.id)?'seen':'new'}" data-play>${P}</button></div><span class="cd">${t.ch[S.chap][2]} / ${t.d}</span><div class="barp"><i style="width:${S.playing?Math.max(pct,4):pct}%"></i></div></div>
+<div class="vtitle">${t.t}</div>${S.man==='C'?`<a class="inman" href="#" style="margin:0 0 8px">${BOOK}Leer «${t.t}» en el manual</a>`.replace(/«([^»]+)»/,'$1'):''}`;
+h+=t.ch.map((c,i)=>`<button class="chap${i===S.chap?' on':''}" data-chap="${i}"><span class="n">${i+1}</span><span class="ct"><b class="h">${c[0]}</b>${fmt(c[1])}</span><span class="dur">${c[2]}</span></button>`).join('');
+const qs=t.q.map((q,i)=>({id:t.id+i,t:q[0],a:q[1],j:q[2]})).concat(Q.filter(q=>q.m===m));
+if(qs.length){h+=`<div class="sec" style="margin-top:22px">Preguntas</div>`;
+h+=qs.map((q,i)=>`<div class="q${(S.openQ?S.openQ===q.id:i===0)?' open':''}" id="q-${q.id}"><button class="qb" data-acc><span>${fmt(q.t)}</span>${CD}</button><div class="qa"><p>${fmt(q.a)}</p>${q.j!=null?`<button class="jump" data-chap="${q.j}"><span class="disk sm">${P}</span>${t.ch[q.j][2]} en el video</button>`:''}</div></div>`).join('')}
+const others=T.filter(x=>x.m===m&&x.id!==t.id);
+if(S.man==='C'&&!others.length)h+='';
+if(others.length)h+=`<div class="sec" style="margin-top:22px">Otros tutoriales de ${MODS[m].n}</div>`+others.map(x=>`<button class="tcard" data-tut="${x.id}"><div class="thumb">${dk(x)}<span class="cd">${x.d}</span></div><div><div class="tt">${x.t}</div><div class="ts">${x.s}</div>${seen.has(x.id)?'<div class="tm">✓ Visto</div>':''}</div></button>`).join('');
+if(S.man==='C')h+=`<a class="manual-row" href="Manual de usuario.html"><span class="bk">${BOOK}</span><div><div class="mn" style="font-size:14px">${MODS[m].n} en el manual</div><div class="ms">Todas las tareas del módulo, para leer o imprimir</div></div>${ARR}</a>`;
+return h}
+function homeB(){const w=WHERE[S.w];let h='';const here=T.find(t=>t.m===w.mod&&t.view===w.view);
+if(here)h+=`<div class="sec">En esta pantalla</div><button class="here-card" style="margin-top:0" data-go-tut="${here.id}"><div class="thumb" style="width:104px">${dk(here,'')}<span class="cd">${here.d}</span></div><div><div class="tt" style="font-size:14.5px">${here.t}</div><div class="ts">${here.ch.length} pasos · ${here.s}</div></div></button>`;
+h+=`<div class="sec">Módulos</div>`;
+sorted().forEach(k=>{const v=T.filter(t=>t.m===k),sv=v.filter(t=>seen.has(t.id)).length,qq=Q.filter(q=>q.m===k);
+h+=`<button class="mcard" data-sw="${k}"><div class="mh"><span class="mi" style="background:${EMP[k][0]}1A">${EM[k].replace('15px;height:15px','18px;height:18px')}</span><div><div class="mn">${MODS[k].n}${k===curMod()?' <span class="ms" style="font:500 12px var(--ft)">· donde estás</span>':''}</div><div class="ms">${v.length} tutoriales · ${qq.length+v.reduce((a,t)=>a+t.q.length,0)} preguntas</div></div>${CH}</div>
+<div class="mq">${v.slice(0,2).map(t=>`<span>${t.t}</span>`).join('')}</div>
+<div style="display:flex;align-items:center;gap:10px"><div class="prog" style="flex:1"><i style="width:${sv/v.length*100}%"></i></div><span class="ms">${sv} de ${v.length} vistos</span></div></button>`});
+return h}
+const BOOK='<svg class="ico" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h5v17H6a2 2 0 0 0-2 2zM20 5a2 2 0 0 0-2-2h-5v17h5a2 2 0 0 1 2 2z"></path></svg>';
+const ARR='<svg class="ico" viewBox="0 0 24 24" style="margin-left:auto;color:var(--muted)"><path d="M7 17 17 7M9 7h8v8"></path></svg>';
+const miK=k=>`<span class="mi" style="background:${EMP[k][0]}1A">${EM[k].replace('15px;height:15px','18px;height:18px')}</span>`;
+const hereT=()=>{const w=WHERE[S.w];return T.find(t=>t.m===w.mod&&t.view===w.view)};
+const cnt=k=>{const v=T.filter(t=>t.m===k);return `${v.length} tutoriales · ${Q.filter(q=>q.m===k).length+v.reduce((a,t)=>a+t.q.length,0)} preguntas`};
+function homeL(){let h='';const t=hereT();
+if(t)h+=`<div class="sec">En esta pantalla</div><button class="tcard" data-go-tut="${t.id}" style="border-bottom:0"><div class="thumb" style="width:104px">${dk(t,'')}<span class="cd">${t.d}</span></div><div><div class="tt" style="font-size:14.5px">${t.t}</div><div class="ts">${t.ch.length} pasos · ${t.s}</div></div></button>`;
+h+=`<div class="sec">Módulos</div>`+sorted().map(k=>`<button class="mrow" data-sw="${k}">${miK(k)}<div><div class="mn" style="font-size:14px">${MODS[k].n}</div><div class="ms">${cnt(k)}</div></div>${CH}</button>`).join('');
+h+=`<a class="manual-row" href="Manual de usuario.html"><span class="bk">${BOOK}</span><div><div class="mn" style="font-size:14px">Manual de usuario</div><div class="ms">Todo Spira paso a paso, con los videos enlazados</div></div>${ARR}</a>`;
+return h}
+function homeF(){let h='';const t=hereT()||T.find(x=>x.m==='general');
+h+=`<div class="sec">${hereT()?'En esta pantalla':'Para empezar'}<span>${t.d}</span></div><div class="vid"><span class="lbl">captura · ${t.view||MODS[t.m].n}</span><div class="center"><button class="disk lg ${seen.has(t.id)?'seen':'new'}" data-go-tut="${t.id}">${P}</button></div><span class="cd">${t.d}</span></div><div style="display:flex;align-items:baseline;gap:8px;margin-top:10px"><div class="vtitle" style="margin:0;flex:1">${t.t}</div><button class="jump" data-go-tut="${t.id}">${t.ch.length} pasos ›</button></div>`;
+h+=`<div class="manual-band"><span class="bk">${BOOK}</span><div style="min-width:0"><div class="mn" style="font-size:14.5px">Manual de usuario</div><div class="ms" style="font-size:12.3px;color:var(--ink-soft)">Cada tarea explicada, con su video</div></div><a class="mb-btn" href="Manual de usuario.html">Abrir manual</a></div>`;
+h+=`<div class="sec" style="margin-top:22px">Lo más consultado</div>`+POP.slice(0,4).map(([k,id])=>{if(k==='t'){const x=T.find(y=>y.id===id);return `<button class="hq" data-go-tut="${id}">${dk(x)}<span class="tt">${x.t}</span><span class="mt">${MODS[x.m].n}</span></button>`}const q=Q.find(y=>y.id===id);return `<button class="hq" data-go-q="${id}">${TXT}<span class="tt">${fmt(q.t)}</span><span class="mt">${MODS[q.m].n}</span></button>`}).join('');
+return h}
+function homeI(){let h=`<div class="manual-band" style="margin-top:14px"><span class="bk">${BOOK}</span><div style="min-width:0"><div class="mn" style="font-size:14.5px">Manual de usuario</div><div class="ms" style="font-size:12.3px;color:var(--ink-soft)">El índice completo, para leer o imprimir</div></div><a class="mb-btn" href="Manual de usuario.html">Abrir</a></div>`;
+sorted().forEach(k=>{h+=`<div class="ix-h">${miK(k)}<span class="mn">${MODS[k].n}</span><button data-sw="${k}">Ver todo ›</button></div>`;
+h+=T.filter(t=>t.m===k).map(t=>`<button class="ix" data-go-tut="${t.id}">${dk(t)}${t.t}<span class="dur">${t.d}</span></button>`).join('');
+h+=Q.filter(q=>q.m===k).slice(0,2).map(q=>`<button class="ix" data-go-q="${q.id}">${TXT}${fmt(q.t)}</button>`).join('')});
+return h}
+function homeC(){let h=`<div style="font:700 17px/1.3 var(--fd);margin:14px 0 10px">¿Qué querés hacer?</div><label class="search big"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input id="q2" placeholder="Ej.: dispensar, reprogramar, campana"></label>`;
+if(S.man==='C')h+=`<div class="manual-band"><span class="bk">${BOOK}</span><div style="min-width:0"><div class="mn" style="font-size:14.5px">Manual de usuario</div><div class="ms" style="font-size:12.3px;color:var(--ink-soft)">Cada tarea explicada, con su video</div></div><a class="mb-btn" href="Manual de usuario.html">Abrir manual</a></div>`;
+h+=`<div class="sec" style="margin-top:22px">Lo más consultado</div>`;
+h+=POP.map(([k,id])=>{if(k==='t'){const t=T.find(x=>x.id===id);return `<button class="hq" data-go-tut="${id}">${dk(t)}<span class="tt">${t.t}</span><span class="mt">${MODS[t.m].c} · <span class="dur">${t.d}</span></span></button>`}
+const q=Q.find(x=>x.id===id);return `<button class="hq" data-go-q="${id}">${TXT}<span class="tt">${fmt(q.t)}</span><span class="mt">${MODS[q.m].c}</span></button>`}).join('');
+h+=`<div class="sec" style="margin-top:22px">Por módulo</div><div class="mgrid">${sorted().map(k=>{const v=T.filter(t=>t.m===k);return `<button class="mtile" data-sw="${k}"><span class="mi" style="background:${EMP[k][0]}1A">${EM[k].replace('15px;height:15px','18px;height:18px')}</span><div><div class="mn">${MODS[k].n}</div><div class="ms">${v.length} tutoriales</div></div></button>`}).join('')}</div>`;
+return h}
+function search(){const s=S.q.toLowerCase().trim(),re=new RegExp('('+s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','ig'),hl=x=>fmt(x).replace(re,'<mark>$1</mark>');
+const rt=T.filter(t=>(t.t+t.s+t.ch.map(c=>c.join(' ')).join(' ')+t.q.map(q=>q.join(' ')).join(' ')).toLowerCase().includes(s));
+const rq=Q.filter(q=>(q.t+q.a).toLowerCase().includes(s));
+if(!rt.length&&!rq.length)return `<div class="empty-s">Nada para «${S.q}».<br><a href="#">Contanos qué buscabas</a></div>`;
+return `<div class="sec">Resultados<span>${rt.length+rq.length}</span></div>`+rt.map(t=>`<button class="hq" data-go-tut="${t.id}">${dk(t)}<span class="tt">${hl(t.t)}</span><span class="mt">${MODS[t.m].c} · <span class="dur">${t.d}</span></span></button>`).join('')+rq.map(q=>`<button class="hq" data-go-q="${q.id}">${TXT}<span class="tt">${hl(q.t)}</span><span class="mt">${MODS[q.m].c}</span></button>`).join('')}
+function render(){head();$('mf').innerHTML=S.man==='B'?`<a class="mfoot" href="Manual de usuario.html"><span class="bk" style="background:var(--white)">${BOOK}</span><div style="min-width:0"><div class="mn" style="font-size:14px">Manual de usuario</div><div class="ms" style="color:var(--ink-soft)">${S.view==='mod'?'Abrí '+MODS[S.mod].n+' en el manual':'Cada tarea paso a paso, con su video'}</div></div>${ARR}</a>`:'';$('pb').innerHTML=S.q.trim()?search():S.view==='home'?({L:homeL,F:homeF,I:homeI,C:homeC}[S.home]||homeL)():modView();
+const q2=$('q2');if(q2)q2.oninput=e=>{S.q=e.target.value;render();const n=$('q');if(n){n.focus();n.setSelectionRange(99,99)}};
+$('note').innerHTML='Bajada con la descripción del submódulo y «¿Qué puedo hacer acá?»: al pasar el mouse abre el tutorial. La Ayuda: inicio con preguntas primero, pestañas con íconos y el manual dentro del contenido.'.replace(/«([^»]+)»/g,'<span class="ui">$1</span>');}
+function renderApp(){const w=WHERE[S.w];
+$('side').innerHTML=w.side.length?`<div class="k">SUBMÓDULOS</div>`+w.side.map(s=>`<div class="it${s[0]===w.view?' on':''}">${s[0]}<small>${s[1]}</small></div>`).join(''):'';
+const t=T.find(x=>x.m===w.mod&&x.view===w.view);
+const desc=(w.side.find(x=>x[0]===w.view)||[])[1]||'';
+$('main').innerHTML=`<div class="crumb">${w.mod?'Spira '+MODS[w.mod].n+' › ':''}<b>${w.view}</b></div><div class="th" style="align-items:flex-start"><div><h2>${w.view}</h2>${t?`<div class="bj"><div class="bd"><span>${desc}</span><span class="lk"><button><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.4M12 17h.01"></path></svg>¿Qué puedo hacer acá?</button><div class="globo"><div class="gt">${t.t}</div><div class="gx">${fmt(t.ch.map(c=>c[1]).slice(0,2).join(' '))}</div><div class="vid"><span class="lbl">captura · ${t.view}</span><div class="center"><button class="disk lg ${seen.has(t.id)?'seen':'new'}" data-go-tut="${t.id}" style="text-decoration:none">${P}</button></div><span class="cd">${t.d}</span></div><div class="gf"><span>${t.ch.length} pasos</span><button data-go-tut="${t.id}">Ver en la Ayuda</button></div></div></span></div></div>`:''}</div>${w.act?`<button class="btn">${w.act}</button>`:''}</div><div class="emp"><div><b>${w.empty[0]}</b>${w.empty[1]}</div></div>`;
+$('modname').textContent=w.mod?MODS[w.mod].n:'Inicio';
+$('r-pharma').classList.toggle('on',S.w==='pharma');$('r-track').classList.toggle('on',S.w==='track')}
+function openHelp(){$('app').classList.add('open');S.q='';if(S.home==='A')goMod(curMod());else{S.view='home';S.dd=false}render()}
+let timer;
+document.addEventListener('click',e=>{const el=e.target.closest('button');
+if(!el){if(S.dd&&!e.target.closest('.ddm')){S.dd=false;render()}return}
+const ctl=el.closest('[data-ctl]');
+if(ctl){S[ctl.dataset.ctl]=el.dataset.v;ctl.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el));renderApp();openHelp();$('app').classList.remove('open');return}
+if(el.id==='openHelp'){openHelp();return}
+if(el.id==='close'){$('app').classList.remove('open');clearInterval(timer);S.playing=false;return}
+if(el.hasAttribute('data-dd')){S.dd=!S.dd;render();return}
+if(el.dataset.sw){S.q='';S.openQ=null;if(el.dataset.sw==='home'){S.view='home';S.dd=false;clearInterval(timer);S.playing=false}else goMod(el.dataset.sw);render();$('pb').scrollTop=0;return}
+if(el.dataset.goTut){const t=T.find(x=>x.id===el.dataset.goTut);$('app').classList.add('open');S.q='';S.openQ=null;goMod(t.m,t.id);render();$('pb').scrollTop=0;return}
+if(el.dataset.goQ){const q=Q.find(x=>x.id===el.dataset.goQ);S.q='';goMod(q.m);S.openQ=q.id;render();const n=$('q-'+q.id);if(n)$('pb').scrollTop=n.offsetTop-80;return}
+if(el.dataset.tut){S.tut=el.dataset.tut;S.chap=0;S.playing=false;S.openQ=null;clearInterval(timer);render();$('pb').scrollTop=0;return}
+if(el.dataset.chap!=null){S.chap=+el.dataset.chap;render();return}
+if(el.hasAttribute('data-acc')){el.parentElement.classList.toggle('open');return}
+if(el.hasAttribute('data-play')){const t=T.find(x=>x.id===S.tut);S.playing=true;seen.add(t.id);render();renderApp();clearInterval(timer);
+timer=setInterval(()=>{if(S.chap<t.ch.length-1){S.chap++;render()}else{clearInterval(timer);S.playing=false;render()}},2200);return}
+});
+$('scrim').onclick=()=>{$('app').classList.remove('open');clearInterval(timer)};
+renderApp();openHelp();$('app').classList.remove('open');
+</script>
+</body>
+</html>
