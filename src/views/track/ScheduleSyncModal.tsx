@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { btnOutline, btnPrimary } from '../../components/buttons'
-import { previewScheduleSync, applyScheduleSync, useVisitasFueraDeVentana } from '../../data/visitDefinitions'
-import type { SchedulePlan } from '../../data/visitDefinitions'
+import { previewScheduleSync, applyScheduleSync, useNombresDeInscripciones, useVisitasFueraDeVentana } from '../../data/visitDefinitions'
+import type { DetalleDelSync, NombreDeInscripcion, SchedulePlan } from '../../data/visitDefinitions'
 import { formatDayMonth } from '../../lib/dates'
-import { avisoFueraDeVentana, lineasDelPlan, planSinCambios } from './sincronizar'
+import { avisoFueraDeVentana, gruposDelDetalle, lineasDelPlan, planSinCambios, textoDelRenglon } from './sincronizar'
 
 /**
  * Preview + aplicar de la sincronización del cronograma. Al abrir llama al dry-run y muestra
@@ -13,9 +13,13 @@ import { avisoFueraDeVentana, lineasDelPlan, planSinCambios } from './sincroniza
  * se tocan; si alguna difiere del cronograma se reporta sin modificarla.
  *
  * Desde la 0163 el sync CONSERVA las fechas que se dieron a mano (Reprogramar, el encabezado, la llegada
- * adelantada…) y las de las visitas con algo marcado, y el preview lo dice. Las líneas las arma
- * `lineasDelPlan` (pura, con test); si una conservada queda fuera de su ventana nueva, el aviso ámbar la
- * nombra (por `v_track_visits`, con la RLS de quien mira).
+ * adelantada…) y las de las visitas con algo marcado, y el preview lo dice. Desde la 0164 además LISTA cuáles:
+ * paciente, IVRS, visita y «20 oct → 27 oct» o «23 oct · se la dieron a mano», agrupadas por lo que les pasa
+ * (`gruposDelDetalle`, pura y con test). Los nombres los pone la app con la RLS de quien mira
+ * (`useNombresDeInscripciones`): el sync no los manda.
+ *
+ * Sin la 0164 (la respuesta no trae `detalle`) queda lo de la 0163: las líneas de `lineasDelPlan` y el aviso
+ * ámbar de las que quedan fuera de su ventana, nombradas por `v_track_visits`.
  */
 export function ScheduleSyncModal({
   protocolId,
@@ -32,7 +36,9 @@ export function ScheduleSyncModal({
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fuera = useVisitasFueraDeVentana(plan?.fuera_de_ventana ?? [])
+  const detalle = plan?.detalle ?? null
+  const nombres = useNombresDeInscripciones(detalle ? detalle.map((d) => d.inscripcion_id) : [])
+  const fuera = useVisitasFueraDeVentana(!detalle ? plan?.fuera_de_ventana ?? [] : [])
 
   useEffect(() => {
     let active = true
@@ -61,12 +67,13 @@ export function ScheduleSyncModal({
   }
 
   const nothing = plan != null && planSinCambios(plan)
-  const lineas = plan ? lineasDelPlan(plan) : []
-  const aviso = plan ? avisoFueraDeVentana(plan) : null
+  const lineas = plan && !detalle ? lineasDelPlan(plan) : []
+  const aviso = plan && !detalle ? avisoFueraDeVentana(plan) : null
   const nombradas = fuera.data ?? []
+  const grupos = detalle ? gruposDelDetalle(detalle) : []
 
   return (
-    <Modal title="Generar / actualizar cronograma" onClose={onClose} maxWidth={460}>
+    <Modal title="Generar / actualizar cronograma" onClose={onClose} maxWidth={detalle ? 600 : 460}>
       {loading ? (
         <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>Calculando cambios…</div>
       ) : error ? (
@@ -78,6 +85,24 @@ export function ScheduleSyncModal({
           {nothing && (
             <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>El cronograma ya está al día. No hay cambios para aplicar.</div>
           )}
+          {/* Con la 0164: la lista, por grupo. Una lista larga se recorre adentro del modal. */}
+          {grupos.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '52vh', overflowY: 'auto', paddingRight: 4 }}>
+              {grupos.map((g) => (
+                <section key={g.grupo} data-grupo={g.grupo}>
+                  <div style={{ fontSize: 13.5 }}>
+                    <b>{g.filas.length}</b> {g.titulo}
+                  </div>
+                  <ul style={{ fontSize: 13, lineHeight: 1.6, margin: '4px 0 0', paddingLeft: 18 }}>
+                    {g.filas.map((d, i) => (
+                      <Renglon key={`${d.visita_id ?? d.inscripcion_id}-${d.visita ?? ''}-${i}`} d={d} nombre={nombres.data?.get(d.inscripcion_id) ?? null} cargando={nombres.loading} />
+                    ))}
+                  </ul>
+                </section>
+              ))}
+            </div>
+          )}
+          {/* Sin la 0164: las líneas de la 0163. */}
           {lineas.length > 0 && (
             <ul style={{ fontSize: 13.5, lineHeight: 1.7, margin: 0, paddingLeft: 18 }}>
               {lineas.map((l) => (
@@ -87,7 +112,12 @@ export function ScheduleSyncModal({
               ))}
             </ul>
           )}
-          {/* Una fecha conservada que el cambio de definición deja fuera de su ventana: es nuevo y pide revisarla. */}
+          {detalle && plan.deletes > 0 && (
+            <div style={{ fontSize: 13.5 }}>
+              <b>{plan.deletes}</b> {plan.deletes === 1 ? 'visita a borrar (no atendida)' : 'visitas a borrar (no atendidas)'}
+            </div>
+          )}
+          {/* Sin la 0164: una conservada que el cambio de definición deja fuera de su ventana. */}
           {aviso && (
             <div style={{ fontSize: 13, color: 'var(--spira-acc-deep-warn)', lineHeight: 1.5 }}>
               {aviso}
@@ -125,5 +155,39 @@ export function ScheduleSyncModal({
         </div>
       )}
     </Modal>
+  )
+}
+
+/**
+ * Un renglón del detalle: nombre en tinta, IVRS en mono, la visita y lo que le pasa. Si quien mira no ve al
+ * paciente (la RLS no devolvió la inscripción), el renglón queda con la visita y las fechas, sin nombre.
+ */
+function Renglon({ d, nombre, cargando }: { d: DetalleDelSync; nombre: NombreDeInscripcion | null; cargando: boolean }) {
+  const { texto, fueraDeVentana } = textoDelRenglon(d)
+  return (
+    <li>
+      {nombre ? (
+        <>
+          {nombre.nombre}
+          {nombre.ivrs && (
+            <>
+              {' · '}
+              <span className="spira-mono" style={{ color: 'var(--spira-muted)' }}>{nombre.ivrs}</span>
+            </>
+          )}
+        </>
+      ) : (
+        <span style={{ color: 'var(--spira-muted)' }}>{cargando ? '…' : 'Sin acceso al paciente'}</span>
+      )}
+      {d.visita && (
+        <>
+          {' · '}
+          <span style={{ fontWeight: 600 }}>{d.visita}</span>
+        </>
+      )}
+      {' · '}
+      {texto}
+      {fueraDeVentana && <span style={{ color: 'var(--spira-acc-deep-warn)' }}> · {fueraDeVentana}</span>}
+    </li>
   )
 }
