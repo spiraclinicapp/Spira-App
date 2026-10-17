@@ -82,8 +82,15 @@ export function ScheduleSyncModal({
         <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>No pudimos leer el plan del cronograma.</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {/* La segunda frase, por un caso real (17/10): el Director le sacó un procedimiento a la V1 y vino a
+              «aplicarlo» acá. Lo que lleva cada visita se calcula en vivo del cronograma (v_visit_procedures,
+              0144): no hay nada que sincronizar, y sin decirlo «al día» parecía que el cambio no había entrado. */}
           {nothing && (
-            <div style={{ fontSize: 13.5, color: 'var(--spira-muted)' }}>El cronograma ya está al día. No hay cambios para aplicar.</div>
+            <div style={{ fontSize: 13.5, color: 'var(--spira-muted)', lineHeight: 1.5 }}>
+              El cronograma ya está al día. No hay cambios para aplicar.
+              <br />
+              Los cambios en los procedimientos ya rigen solos: este botón sólo crea visitas y ajusta fechas.
+            </div>
           )}
           {/* Con la 0164: la lista, por grupo. Una lista larga se recorre adentro del modal. */}
           {grupos.length > 0 && (
