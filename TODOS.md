@@ -5,32 +5,6 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
-## Coordinación · Cronograma: sincronizar deshace los «Reprogramar»
-
-- **Qué:** que `sync_protocol_schedule` (última definición en la 0161) no le devuelva la fecha teórica a
-  una visita automática sin atender que alguien reprogramó a propósito, o que al menos el preview lo diga.
-- **Por qué:** su MOVER compara `estimated_date` con `randomización + offset` y pisa toda diferencia. Un
-  turno acordado con el paciente vuelve a la fecha del cronograma sin aviso: el preview lo cuenta como
-  «visitas a mover (no atendidas)» (`ScheduleSyncModal.tsx:75`), igual que un desfase de verdad. La 0161 ya
-  excluye los turnos cancelados; los reprogramados siguen expuestos.
-- **Pros:** sincronizar el cronograma deja de borrar decisiones de agenda.
-- **Contras:** hay que distinguir «la fecha se movió a mano» de «la definición cambió»: falta un dato (un
-  sello de reprogramación, o comparar contra la fecha teórica anterior).
-- **Contexto:** encontrado en el `/plan-eng-review` de «Cancelar turno» (`docs/plan-cancelar-turno.md`, NOT
-  in scope), 2026-10-15.
-- **Empezar por:** contar cuántas visitas automáticas sin atender difieren hoy de su fecha teórica, por
-  estudio (el preview del sync, en modo sólo lectura, lo da).
-- **Depende de / bloqueado por:** nada. Es una re-declaración de `sync_protocol_schedule`: probarla en el
-  banco (`scripts/banco-rls/`), como en la 0161.
-- **Prioridad:** P2.
-- **Estado (2026-10-17): hecho, falta aplicarlo.** Plan en `docs/plan-sync-sin-pisar-reprogramar.md` (P1–P5 con
-  la recomendada); la 0163 y el front, en la rama `claude/peaceful-allen-0b8cae`. Falta: aplicar la 0163 (va
-  PRIMERO, con su sonda y la API sin sesión) y desplegar el front. Hasta que la 0163 esté en prod, **no sincronizar
-  los cuatro estudios de la prueba real**: el cruce del listado les puso fechas del sitio que hoy un sync
-  devolvería a la teórica. Esta entrada se borra en el cierre de la jornada en que se aplique.
-
----
-
 ## Farmacia · Reposición: la última visita con el turno cancelado
 
 - **Qué:** que `reposicion_del_periodo` (0151, CTE `cronograma`) calcule el fin del tratamiento con
