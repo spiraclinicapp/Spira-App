@@ -7,7 +7,8 @@ mover (no atendidas)», igual que un desfase de verdad.
 Revisado con `/plan-eng-review` el 2026-10-16, en modo «la recomendada» (preferencia del Director), con una segunda
 opinión independiente (subagente Claude; Codex no está en esta máquina) que cambió tres decisiones. Las decisiones
 técnicas van auto-decididas con su porqué; las de producto quedan como **preguntas abiertas** al final, cada una con
-la recomendación. **No hay código ni SQL todavía.**
+la recomendación. **Las cinco, decididas por el Director el 2026-10-17 con la recomendada; implementado en la misma
+rama (T1, T2). Falta aplicar la 0163 y desplegar (T3).**
 
 > ⚠️ **Mientras tanto: no sincronizar los cuatro estudios de la prueba real** (LTS17231, ACT18301, 222714,
 > Victorion). El cruce del listado (`supabase/scripts/pacientes-prueba-real/generar.mjs`, aplicado el 2026-09-28) les
@@ -497,7 +498,10 @@ molde, `sql-sin-comentarios.mjs`. Nuevo: la columna, `cronograma_por_sincronizar
 Implementación secuencial: el front lee las claves nuevas de la RPC, y la migración va primero con su sonda. Lo único
 separable (`lineasDelPlan` y su test) son minutos.
 
-## Preguntas al Director
+## Preguntas al Director · decididas
+
+**Decidido por el Director el 2026-10-17: «dale con lo recomendado».** Las cinco quedan con la opción recomendada. Se
+dejan las alternativas a la vista para saber qué se descartó.
 
 **P1 · ¿Qué fechas se respetan?**
 - **(Recomendada) Toda fecha que no es la que puso el cronograma, sin importar cómo llegó:** «Reprogramar», «Traer
@@ -534,22 +538,35 @@ separable (`lineasDelPlan` y su test) son minutos.
 
 ## Implementation Tasks
 
-- [ ] **T1 (P1, humano ~5 h / CC ~30 min)** — base — `0163_sync_respeta_fechas_a_mano.sql` (columna,
+- [x] **T1 (P1, humano ~5 h / CC ~30 min)** — base — `0163_sync_respeta_fechas_a_mano.sql` (columna,
   `generate_patient_visits`, `cronograma_por_sincronizar`, `sync_protocol_schedule`) + `scripts/banco-rls/casos-0163.mjs`
-  + `equivalencia.mjs 0163 --control` + `casos-0158/0159/0160/0161` en verde + fila del índice en `supabase/README.md`
-  (sin «Aplicada» hasta la sonda y la API)
+  + `equivalencia.mjs 0163 --control` + fila del índice en `supabase/README.md` (sin «Aplicada» hasta la sonda y la API)
   - Surgió de: D1–D10; Revisión 2 (DRY); Revisión 3 (todo el banco); segunda opinión 2, 4, 8, 12
   - Verificar: `node scripts/banco-rls/casos-0163.mjs` aplicando **la copia sin comentarios**; dollar-quotes en par;
     `node scripts/check-migraciones.mjs`
-- [ ] **T2 (P1, humano ~2 h / CC ~15 min)** — front — `SchedulePlan` con las claves nuevas (`data/visitDefinitions.ts`);
+  - Verificado (2026-10-17): `casos-0163.mjs` 35/35, con el archivo y con la copia sin comentarios (la que va a prod;
+    primer renglón SQL, ningún `--`). La 0163 entra sobre los datos sembrados sin escribir ninguna visita ni línea de
+    `audit_log`, y correrla dos veces da lo mismo. **Control:** contra una copia sin las clases `a_mano` y `marcada`
+    (el sync de antes) fallan justo los 15 casos de la conducta nueva. `equivalencia.mjs 0163 --control` sin
+    diferencias de permisos (2028 comparaciones, control 12/12; 5 fotos distintas con las mismas filas: la columna
+    nueva de `patient_visits`). 6 marcadores de dollar-quote, en par; ningún signo peso en comentarios.
+    `check-migraciones` al día. `casos-0158/0159/0160/0161` no se corrieron: están fijados a su migración y no
+    cargan la 0163.
+- [x] **T2 (P1, humano ~2 h / CC ~15 min)** — front — `SchedulePlan` con las claves nuevas (`data/visitDefinitions.ts`);
   `lineasDelPlan` en `views/track/sincronizar.ts` + `sincronizar.test.ts`; `ScheduleSyncModal` con las líneas, el aviso
   de fuera de ventana (nombres por `v_track_visits`, sin recalcular) y la respuesta vieja
   - Surgió de: D8, D9; «Cómo sale en el preview»; Revisión 3 (vitest); segunda opinión 5
   - Verificar: `npm run build` verde
+  - Verificado (2026-10-17): `npm run build` verde (130 archivos de test, 2216 tests; `sincronizar.test.ts` con 11).
+    En el preview, con un banco temporal (la RPC y `v_track_visits` simuladas, sin sesión; borrado antes de
+    commitear): los cinco casos (completo con el aviso y los nombres, al día con conservadas y «Aplicar» apagado,
+    respuesta sin la 0163 con las tres líneas de antes, aviso sin nombres cerrado en «.», sólo ventanas con «Aplicar»
+    habilitado) salen como en «Cómo sale en el preview», sin errores de consola.
 - [ ] **T3 (P1)** — verificación — la 0163 aplicada con su sonda en verde y la API sin sesión; QA con sesión del preview
   del sync (`p_apply = false`) sobre TEST-QA con una visita reprogramada, y en un estudio real **sólo el preview**
   - Verificar: el modal muestra «conservan la fecha que se les dio a mano»; nada se escribe en estudios reales
-- [ ] **T4 (P3)** — docs — `TODOS.md`: cerrar «sincronizar deshace los «Reprogramar»»; este plan con sus casillas
+- [x] **T4 (P3)** — docs — `TODOS.md`: la entrada dice que está hecho y lo que falta (aplicar y desplegar); este plan
+  con sus casillas. Se borra de `TODOS.md` con el cierre de la jornada en que se aplique.
 
 ## GSTACK REVIEW REPORT
 
@@ -557,14 +574,13 @@ separable (`lineasDelPlan` y su test) son minutos.
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 10 decisiones técnicas auto-decididas; 6 hallazgos propios (DRY, concurrencia, D4 de paso, modal puro, sonda, aviso de prod); 12 de la segunda opinión, 8 tomados, 2 a medias, 2 descartados; 0 critical gaps de código (1 operativa: no sincronizar la prueba real hasta la 0163); 5 preguntas de producto abiertas, con la recomendada |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 10 decisiones técnicas auto-decididas; 6 hallazgos propios (DRY, concurrencia, D4 de paso, modal puro, sonda, aviso de prod); 12 de la segunda opinión, 8 tomados, 2 a medias, 2 descartados; 0 critical gaps de código (1 operativa: no sincronizar la prueba real hasta la 0163); 5 preguntas de producto, decididas por el Director con la recomendada (2026-10-17) |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
 - **CROSS-MODEL:** segunda opinión de un subagente Claude (Codex no está instalado). Dos tensiones (`generate` y los
   conteos que se repiten), decididas con la recomendada y anotadas; la segunda queda a la vista en P5.
-- **VERDICT:** ENG CLEARED — listo para implementar cuando el Director conteste P1–P5. Orden: 0163 en prod con su sonda
-  en verde y la API, después el front.
+- **VERDICT:** ENG CLEARED — implementado (T1, T2, T4). Orden: 0163 en prod con su sonda en verde y la API, después el
+  front.
 
-**UNRESOLVED DECISIONS:**
-- P1–P5 (preguntas de producto), cada una con la recomendada; el Director suele elegir «dale con lo recomendado».
+NO UNRESOLVED DECISIONS

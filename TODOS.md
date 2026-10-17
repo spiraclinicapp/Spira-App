@@ -23,9 +23,11 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 - **Depende de / bloqueado por:** nada. Es una re-declaración de `sync_protocol_schedule`: probarla en el
   banco (`scripts/banco-rls/`), como en la 0161.
 - **Prioridad:** P2.
-- **Plan:** `docs/plan-sync-sin-pisar-reprogramar.md` (2026-10-16, esperando P1–P5 del Director). Mientras tanto,
-  **no sincronizar los cuatro estudios de la prueba real**: el cruce del listado les puso fechas del sitio que hoy
-  un sync devolvería a la teórica.
+- **Estado (2026-10-17): hecho, falta aplicarlo.** Plan en `docs/plan-sync-sin-pisar-reprogramar.md` (P1–P5 con
+  la recomendada); la 0163 y el front, en la rama `claude/peaceful-allen-0b8cae`. Falta: aplicar la 0163 (va
+  PRIMERO, con su sonda y la API sin sesión) y desplegar el front. Hasta que la 0163 esté en prod, **no sincronizar
+  los cuatro estudios de la prueba real**: el cruce del listado les puso fechas del sitio que hoy un sync
+  devolvería a la teórica. Esta entrada se borra en el cierre de la jornada en que se aplique.
 
 ---
 

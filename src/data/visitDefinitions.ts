@@ -207,13 +207,56 @@ export async function reorderDefinitions(ids: string[]): Promise<{ error: string
   return { error: null }
 }
 
-/** Resumen del plan de sincronización que devuelve `sync_protocol_schedule` (migración 0026). */
+/**
+ * Resumen del plan de sincronización que devuelve `sync_protocol_schedule` (migración 0026). Las cuatro
+ * últimas las suma la 0163 y son opcionales a propósito: si el front llega antes que la migración, la
+ * respuesta no las trae y el modal dice lo de antes (`lineasDelPlan`), en vez de «undefined visitas».
+ */
 export interface SchedulePlan {
   creates: number
+  /** Visitas a las que el sync les cambia la fecha O la ventana (no atendidas). */
   moves: number
   deletes: number
   attended_divergent: number
   applied: boolean
+  /** De `moves`, las que cambian de FECHA. 0163. */
+  fechas?: number
+  /** Fechas puestas a mano que el sync conserva: el de antes de la 0163 las habría movido. */
+  respetadas?: number
+  /** Visitas con la llegada, «listo» o «No vino» marcados que conservan su fecha (es el registro de ese día). 0163. */
+  con_marcas?: number
+  /** Ids de las puestas a mano que ESTE sync deja fuera de su ventana nueva. 0163. */
+  fuera_de_ventana?: string[]
+}
+
+/** Una visita que el sync deja fuera de su ventana nueva, para nombrarla en el aviso del modal. */
+export interface VisitaFueraDeVentana {
+  id: string
+  patient_name: string
+  visit_code: string | null
+  estimated_date: string | null
+}
+
+/**
+ * Nombre, código y fecha de las visitas que el sync deja fuera de su ventana (`fuera_de_ventana`). Se piden
+ * a `v_track_visits` con la RLS de quien mira y no al sync, que es `security definer`: un admin de
+ * Coordinación que no coordina el estudio puede sincronizarlo pero no ver sus visitas, y entonces el aviso
+ * queda con el número solo. La ventana NO se lee de acá: la vista todavía tiene la vieja (la nueva sólo la
+ * sabe el servidor, que ya decidió cuáles quedan afuera).
+ */
+export function useVisitasFueraDeVentana(ids: string[]) {
+  return useSupabaseQuery<VisitaFueraDeVentana[]>(
+    (c) =>
+      ids.length > 0
+        ? c
+            .from('v_track_visits')
+            .select('id, patient_name, visit_code, estimated_date')
+            .in('id', ids)
+            .order('patient_name', { ascending: true })
+            .returns<VisitaFueraDeVentana[]>()
+        : Promise.resolve({ data: [], error: null }),
+    [ids.join(',')],
+  )
 }
 
 /**
