@@ -14,8 +14,14 @@ import { hayPopoverAbierto } from './usePopover'
  * al cerrar devuelve el foco al elemento que lo disparó. Es net-new respecto a `Modal` (que hoy no
  * atrapa el foco); si más adelante se retrofitea `Modal`, este es el patrón a portar.
  */
-export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef, chrome = 'default', cabecera, pie }: {
+export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusRef, chrome = 'default', cabecera, pie, velo = 'normal' }: {
   title: string
+  /**
+   * El fondo detrás del panel. `'suave'`: más claro y SIN desenfoque, para un panel que acompaña lo que estás
+   * haciendo en vez de taparlo (la Ayuda v2, handoff docs/handoff-ayuda-manual/, §2: «velo oscuro suave, sin
+   * desenfoque»). De paso, sin `backdropFilter` el fondo deja de encerrar a los hijos `position: fixed`.
+   */
+  velo?: 'normal' | 'suave'
   onClose: () => void
   children: ReactNode
   /**
@@ -101,7 +107,7 @@ export function Drawer({ title, onClose, children, maxWidth = 460, initialFocusR
   }, [onClose])
 
   return (
-    <div style={backdrop} onClick={onClose} role="presentation">
+    <div style={velo === 'suave' ? { ...backdrop, ...backdropSuave } : backdrop} onClick={onClose} role="presentation">
       <div
         ref={panelRef}
         tabIndex={-1}
@@ -140,6 +146,7 @@ const backdrop: CSSProperties = {
   position: 'fixed', inset: 0, background: 'rgba(20, 48, 46, 0.32)', backdropFilter: 'blur(2px)',
   display: 'flex', justifyContent: 'flex-end', zIndex: 'var(--spira-z-drawer)', animation: 'spOverlayIn 0.18s ease',
 }
+const backdropSuave: CSSProperties = { background: 'rgba(20, 48, 46, 0.22)', backdropFilter: 'none' }
 const panelBase: CSSProperties = {
   background: 'var(--spira-white)', borderLeft: '1px solid var(--spira-line)',
   boxShadow: 'var(--spira-shadow-md)', width: '96vw', height: '100%',

@@ -1,6 +1,5 @@
 import { normalizar } from '../lib/texto'
 import type { Tutorial } from './tutoriales'
-import type { ModuloAyuda } from './reglas'
 
 /* ============================================================================
    Reglas de los tutoriales en video: cuáles están publicados, quién los ve, dónde se ofrecen, de dónde se
@@ -52,11 +51,6 @@ export function tutorialDeLaVista(visibles: readonly Publicado[], moduleKey: str
   return visibles.find((t) => t.vista === `${moduleKey}/${subKey}`) ?? null
 }
 
-/** Los del alcance del panel: los del módulo y los generales; `null` = todos. */
-export function tutorialesDelAlcance(visibles: readonly Publicado[], modulo: ModuloAyuda | null): Publicado[] {
-  return modulo ? visibles.filter((t) => t.modulo === modulo || t.modulo === 'general') : [...visibles]
-}
-
 /** Con texto, como las preguntas: en todo lo visible, por título, resumen, descripción, capítulos y lo que dice la voz. */
 export function buscarTutoriales(visibles: readonly Publicado[], termino: string): Publicado[] {
   const t = normalizar(termino.trim())
@@ -67,12 +61,6 @@ export function buscarTutoriales(visibles: readonly Publicado[], termino: string
       ...x.meta.capitulos.flatMap((c) => [c.titulo, c.texto ?? '']),
       ...x.meta.transcripcion,
     ].some((campo) => normalizar(campo).includes(t)))
-}
-
-/** El que sigue en la lista (el orden de un curso), o null si es el último. */
-export function siguienteDe(visibles: readonly Publicado[], id: string): Publicado | null {
-  const i = visibles.findIndex((t) => t.id === id)
-  return i >= 0 && i < visibles.length - 1 ? visibles[i + 1] : null
 }
 
 /* —— Storage —— */
@@ -136,12 +124,4 @@ export function capituloActual(capitulos: readonly Capitulo[], ms: number): numb
   let actual = -1
   capitulos.forEach((c, i) => { if (c.inicioMs <= ms) actual = i })
   return actual
-}
-
-/** Cuánto del capítulo `i` ya se vio (0 a 1): la barrita del capítulo actual. */
-export function progresoDelCapitulo(capitulos: readonly Capitulo[], i: number, ms: number, duracionMs: number): number {
-  if (i < 0 || i >= capitulos.length) return 0
-  const inicio = capitulos[i].inicioMs
-  const fin = i + 1 < capitulos.length ? capitulos[i + 1].inicioMs : duracionMs
-  return fin > inicio ? Math.min(1, Math.max(0, (ms - inicio) / (fin - inicio))) : 1
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { MODULES } from '../modules/registry'
 import {
-  baseDeTutoriales, buscarTutoriales, capituloActual, duracionCorta, duracionHablada, motivoDelError, progresoDelCapitulo, publicados,
-  siguienteDe, tutorialDeLaVista, tutorialesDelAlcance, urlDelTutorial, visiblesPara,
+  baseDeTutoriales, buscarTutoriales, capituloActual, duracionCorta, duracionHablada, motivoDelError, publicados,
+  tutorialDeLaVista, urlDelTutorial, visiblesPara,
 } from './catalogo'
 import type { Meta, MetaTutorial, Publicado } from './catalogo'
 import META from './tutoriales.meta.json'
@@ -66,18 +66,10 @@ describe('publicados y visibles', () => {
     expect(tutorialDeLaVista(todos, 'pharma', 'dispensaciones')?.id).toBe('a')
     expect(tutorialDeLaVista(todos, 'pharma', 'stock')).toBeNull()
   })
-  it('el alcance del panel: el módulo y los generales; null = todos', () => {
-    expect(tutorialesDelAlcance(todos, 'track').map((t) => t.id)).toEqual(['b', 'c'])
-    expect(tutorialesDelAlcance(todos, null).map((t) => t.id)).toEqual(['a', 'b', 'c'])
-  })
   it('se busca sin tildes y también en lo que dice la voz', () => {
     const conVoz: Publicado[] = [{ ...tut('x', 'pharma'), meta: meta({ transcripcion: ['Escaneá cada unidad con el lector.'] }) }]
     expect(buscarTutoriales(conVoz, 'ESCANEA').map((t) => t.id)).toEqual(['x'])
     expect(buscarTutoriales(conVoz, 'recepción')).toEqual([])
-  })
-  it('el siguiente es el que sigue en la lista; el último no tiene', () => {
-    expect(siguienteDe(todos, 'a')?.id).toBe('b')
-    expect(siguienteDe(todos, 'c')).toBeNull()
   })
 })
 
@@ -114,10 +106,6 @@ describe('tiempos', () => {
     expect(capituloActual(caps, 37_999)).toBe(1)
     expect(capituloActual(caps, 50_000)).toBe(2)
     expect(capituloActual([{ inicioMs: 5_000, titulo: 'x' }], 1_000)).toBe(-1)
-  })
-  it('el progreso del capítulo va de 0 a 1 hasta el siguiente (o el final)', () => {
-    expect(progresoDelCapitulo(caps, 1, 26_000, 80_000)).toBeCloseTo(0.5)
-    expect(progresoDelCapitulo(caps, 2, 80_000, 80_000)).toBe(1)
   })
 })
 

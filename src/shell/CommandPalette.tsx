@@ -36,7 +36,7 @@ interface CommandPaletteProps {
   onNavigate: (moduleKey: string, subKey: string, target?: SearchItem['target']) => void
   /** Un resultado de Ayuda no navega: abre el panel con esa respuesta desplegada (lo monta el shell). */
   onAbrirAyuda: (preguntaId: string) => void
-  /** Un tutorial tampoco navega: abre el reproductor (lo monta el shell). */
+  /** Un tutorial tampoco navega: abre el panel de Ayuda en ese tutorial (lo monta el shell). */
   onAbrirTutorial: (id: string) => void
   /** Los tutoriales publicados que el usuario ve: entran al índice bajo el chip «Ayuda». */
   tutoriales: readonly Publicado[]

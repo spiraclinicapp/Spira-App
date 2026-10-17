@@ -13,7 +13,7 @@ import { useVideoTutorial } from './useVideoTutorial'
    de los controles clave del flujo (T5b, desde `Pistas`). Por eso no sabe de dónde la abrieron: el marco (el
    popover, el ✕ de la fijada, la flecha) lo pone quien la monta.
 
-   Nunca arranca sola: el sonido empieza con el play. «Ver en grande» pasa al reproductor EN EL MISMO SEGUNDO.
+   Nunca arranca sola: el sonido empieza con el play. «Ver en grande» lo sigue en el panel de Ayuda, EN EL MISMO SEGUNDO.
    ============================================================================ */
 
 export function TarjetaTutorial({ tutorial, base, acento, titulo = tutorial.titulo, texto = tutorial.descripcion, visto, onVisto, onVerEnGrande, onArranca, playRef }: {

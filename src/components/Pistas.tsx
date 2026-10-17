@@ -420,7 +420,7 @@ export function Pistas() {
           onVisto={() => ayuda.marcarVisto(tutorial.id)}
           onArranca={() => { fijadaRef.current = true; setFijada(true) }}
           onVerEnGrande={(segundo) => {
-            // El foco al control ANTES de abrir el reproductor: el `Modal` lo toma como disparador y se lo
+            // El foco al control ANTES de abrir la Ayuda: el `Drawer` lo toma como disparador y se lo
             // devuelve al cerrar (la tarjeta, con su botón, ya no va a estar).
             abierta.el.focus()
             cerrarRef.current()

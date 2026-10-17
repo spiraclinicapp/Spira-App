@@ -59,7 +59,7 @@ export interface SearchItem {
   buscable?: string
   /** Si está, el resultado NO navega: abre el panel de Ayuda con esta respuesta desplegada. */
   ayuda?: { preguntaId: string }
-  /** Si está, el resultado NO navega: abre el reproductor con este tutorial (docs/plan-tutoriales.md, «Capas»). */
+  /** Si está, el resultado NO navega: abre el panel de Ayuda en este tutorial (docs/plan-ayuda-manual.md, A20). */
   tutorial?: { id: string }
 }
 
@@ -179,7 +179,7 @@ export function buildSearchIndex(sources: SearchSources, isAllowed: Allowed, sub
       ayuda: { preguntaId: p.id },
     })
   }
-  // Y los tutoriales en video publicados, bajo el mismo chip: también son ayuda. Abren el reproductor.
+  // Y los tutoriales en video publicados, bajo el mismo chip: también son ayuda. Abren el panel en ese tutorial.
   for (const t of sources.tutoriales ?? []) {
     items.push({
       id: `tutorial-${t.id}`, type: 'ayuda', icon: 'play',
