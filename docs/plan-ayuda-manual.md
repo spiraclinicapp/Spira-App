@@ -50,7 +50,7 @@ anotadas con su porqué para poder revertirlas. Las que **se apartan del handoff
 | A20 | Buscador global (chip «Ayuda») | Un tutorial abre **el panel en ese tutorial**. Los artículos del manual entran como resultados | Mismo destino que el resto de la Ayuda |
 | A21 | Velo del panel | El `Drawer` suma la prop `velo="suave"`: `rgba(20,48,46,.22)` sin desenfoque. Los otros cajones no cambian | El handoff lo pide sin blur; cambiarlo en `Drawer` tocaría todos los cajones de la app |
 | A22 | «¿Qué puedo hacer acá?» en la primera pantalla de un módulo | **Ofrece «Conocé Coordinación/Farmacia»** (el tutorial de `track/resumen` y `pharma/protocolos`) | Es literalmente la respuesta a «qué puedo hacer acá»: el recorrido de lo que hay en el módulo |
-| A23 | Copy del contenido | **«Pulsá el botón «X»»**, no «Tocá» (regla del Director del 2026-10-14). El texto del mock (Ctrl K, «no se buscan visitas», etc.) es de ejemplo: **nada se copia sin verificarlo en el código** | El mock dice que el buscador no busca visitas y `SearchType` las incluye: ejemplo concreto de por qué no se copia |
+| A23 | Copy del contenido | **«Pulsá el botón «X»»**, no «Tocá» (regla del Director del 2026-10-14). El texto del mock es de ejemplo: **nada se copia sin verificarlo en el código** | El mock escribe «Tocá», capítulos inventados y duraciones de ejemplo. (Una versión anterior de este plan ponía de ejemplo que «el buscador no busca visitas» era falso: es cierto, el índice de visitas está comentado en `searchIndex.ts:138`. `SearchType` todavía nombra el tipo, y eso confundió la revisión: la prueba de que nada se afirma sin mirar el código vale también para el plan) |
 
 ## Arquitectura
 
