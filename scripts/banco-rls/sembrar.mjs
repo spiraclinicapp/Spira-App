@@ -191,6 +191,12 @@ export async function sembrar(db, { volumen = VOLUMEN_CHICO, filasPorTabla = 25,
             fila.window_end = null
           }
           fila.retest_of_visit_id = null
+          // patient_visits_turno_cancelado (0161): un turno cancelado no tiene fecha ni marcas, y al azar
+          // no se arma uno válido. El sembrado no cancela nada; en una base anterior a la 0161 estas
+          // columnas no existen y se ignoran.
+          fila.turno_cancelado_at = null
+          fila.turno_cancelado_by = null
+          fila.citacion_cancelada = null
         }
 
         const nombres = [], valores = []
