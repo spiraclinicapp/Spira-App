@@ -227,6 +227,62 @@ export interface SchedulePlan {
   con_marcas?: number
   /** Ids de las puestas a mano que ESTE sync deja fuera de su ventana nueva. 0163. */
   fuera_de_ventana?: string[]
+  /** Un renglón por visita que el sync crea, cambia o conserva (0164). Sin la 0164 no viene. */
+  detalle?: DetalleDelSync[]
+}
+
+/**
+ * Un renglón del detalle del sync (0164). Cada visita, en un solo grupo:
+ * - `crea`: se crea (`visita_id` null; `fecha_nueva` es la que va a tener);
+ * - `fecha`: cambia de fecha (`fecha` → `fecha_nueva`);
+ * - `conserva`: el sync de antes la habría movido y ésta la conserva (`motivo` dice por qué);
+ * - `ventana`: sólo toma la ventana nueva (`motivo` 'cancelada' si es un turno cancelado, sin fecha).
+ * Trae ids y fechas, no nombres: el sync es `security definer` (ver `useNombresDeInscripciones`).
+ */
+export interface DetalleDelSync {
+  grupo: 'crea' | 'fecha' | 'conserva' | 'ventana'
+  visita_id: string | null
+  inscripcion_id: string
+  /** Código de la definición («V5 W12»); null si la definición no tiene código. */
+  visita: string | null
+  fecha: string | null
+  fecha_nueva: string | null
+  motivo: 'a_mano' | 'no_vino' | 'llegada' | 'listo' | 'cancelada' | null
+  fuera_de_ventana: boolean
+}
+
+/** Nombre e IVRS de una inscripción, para los renglones del detalle del sync. */
+export interface NombreDeInscripcion {
+  nombre: string
+  /** IVRS de la inscripción (0062), con el código del paciente como respaldo, como `v_track_visits` (0126). */
+  ivrs: string | null
+}
+
+/**
+ * Nombre e IVRS de las inscripciones del detalle del sync, por id. Se leen de `enrollments` con la RLS de quien
+ * mira, y no del sync: un admin de Coordinación que no coordina el estudio puede sincronizarlo pero no ver sus
+ * pacientes, y entonces sus renglones salen sin nombre. Un renglón por inscripción (no por visita), así una
+ * lista larga no choca con el tope de filas de PostgREST.
+ */
+export function useNombresDeInscripciones(ids: string[]) {
+  const unicos = [...new Set(ids)].sort()
+  return useSupabaseQuery<Map<string, NombreDeInscripcion>>(
+    async (c) => {
+      if (unicos.length === 0) return { data: new Map(), error: null }
+      const { data, error } = await c
+        .from('enrollments')
+        .select('id, ivrs_code, patient:patients(code, full_name)')
+        .in('id', unicos)
+        .returns<{ id: string; ivrs_code: string | null; patient: { code: string | null; full_name: string } | null }[]>()
+      if (error) return { data: null, error }
+      const mapa = new Map<string, NombreDeInscripcion>()
+      for (const r of data ?? []) {
+        if (r.patient) mapa.set(r.id, { nombre: r.patient.full_name, ivrs: r.ivrs_code ?? r.patient.code })
+      }
+      return { data: mapa, error: null }
+    },
+    [unicos.join(',')],
+  )
 }
 
 /** Una visita que el sync deja fuera de su ventana nueva, para nombrarla en el aviso del modal. */

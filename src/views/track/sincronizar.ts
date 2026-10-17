@@ -1,4 +1,5 @@
-import type { SchedulePlan } from '../../data/visitDefinitions'
+import type { DetalleDelSync, SchedulePlan } from '../../data/visitDefinitions'
+import { formatDayMonth } from '../../lib/dates'
 
 /**
  * Las líneas del preview de «Generar / actualizar cronograma» (`ScheduleSyncModal`). Puras y con test porque
@@ -83,8 +84,68 @@ export function lineasDelPlan(plan: SchedulePlan): LineaDelPlan[] {
 }
 
 /**
+ * El detalle del sync (0164), agrupado para el modal: cuáles se crean, cuáles cambian de fecha, cuáles conservan
+ * la suya y cuáles sólo toman la ventana nueva. Pedido del Director (17/10): «tiene que darte un listado de las que
+ * se van a cambiar, de las que siguen igual». Los grupos salen en ese orden y sólo si tienen renglones; los
+ * renglones, en el orden en que los manda el servidor (por visita del cronograma y fecha).
+ */
+export interface GrupoDelDetalle {
+  grupo: DetalleDelSync['grupo']
+  /** Lo que va después del número en el título del grupo. */
+  titulo: string
+  filas: DetalleDelSync[]
+}
+
+const ORDEN_DE_GRUPOS: DetalleDelSync['grupo'][] = ['crea', 'fecha', 'conserva', 'ventana']
+
+const TITULOS: Record<DetalleDelSync['grupo'], [string, string]> = {
+  crea: ['visita a crear', 'visitas a crear'],
+  fecha: ['cambia de fecha (no atendida)', 'cambian de fecha (no atendidas)'],
+  conserva: ['conserva su fecha', 'conservan su fecha'],
+  ventana: ['sólo ajusta su ventana', 'sólo ajustan su ventana'],
+}
+
+export function gruposDelDetalle(detalle: DetalleDelSync[]): GrupoDelDetalle[] {
+  return ORDEN_DE_GRUPOS.map((grupo) => {
+    const filas = detalle.filter((d) => d.grupo === grupo)
+    return { grupo, titulo: segun(filas.length, ...TITULOS[grupo]), filas }
+  }).filter((g) => g.filas.length > 0)
+}
+
+/** Por qué una visita conserva su fecha, en palabras del día a día. */
+const MOTIVOS: Record<NonNullable<DetalleDelSync['motivo']>, string> = {
+  a_mano: 'se la dieron a mano',
+  no_vino: 'tiene «No vino»',
+  llegada: 'ya tiene la llegada marcada',
+  listo: 'ya está lista para irse',
+  cancelada: 'turno cancelado',
+}
+
+const dia = (iso: string | null): string => (iso ? formatDayMonth(iso) : 'sin turno')
+
+/**
+ * Lo que dice un renglón después del paciente y la visita: «20 oct → 27 oct» si cambia de fecha, «23 oct · se la
+ * dieron a mano» si la conserva, la fecha nueva si se crea, la de hoy si sólo cambia la ventana. Si una conservada
+ * queda fuera de su ventana nueva, se avisa en el mismo renglón (`fueraDeVentana`, para pintarlo en ámbar).
+ */
+export function textoDelRenglon(d: DetalleDelSync): { texto: string; fueraDeVentana: string | null } {
+  const fueraDeVentana = d.fuera_de_ventana ? 'queda fuera de su ventana nueva' : null
+  switch (d.grupo) {
+    case 'crea':
+      return { texto: dia(d.fecha_nueva), fueraDeVentana }
+    case 'fecha':
+      return { texto: `${dia(d.fecha)} → ${dia(d.fecha_nueva)}`, fueraDeVentana }
+    case 'conserva':
+      return { texto: d.motivo ? `${dia(d.fecha)} · ${MOTIVOS[d.motivo]}` : dia(d.fecha), fueraDeVentana }
+    case 'ventana':
+      return { texto: d.motivo === 'cancelada' ? MOTIVOS.cancelada : dia(d.fecha), fueraDeVentana }
+  }
+}
+
+/**
  * El arranque del aviso ámbar de las que quedan fuera de su ventana nueva; `null` si no hay ninguna. El
- * modal le agrega «:» y los nombres, o «.» si quien mira no ve esas visitas.
+ * modal le agrega «:» y los nombres, o «.» si quien mira no ve esas visitas. Sólo sin la 0164: con el detalle,
+ * el aviso va en el renglón de cada una.
  */
 export function avisoFueraDeVentana(plan: SchedulePlan): string | null {
   const n = plan.fuera_de_ventana?.length ?? 0

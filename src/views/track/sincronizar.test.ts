@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { SchedulePlan } from '../../data/visitDefinitions'
-import { avisoFueraDeVentana, lineasDelPlan, planSinCambios } from './sincronizar'
+import type { DetalleDelSync, SchedulePlan } from '../../data/visitDefinitions'
+import { avisoFueraDeVentana, gruposDelDetalle, lineasDelPlan, planSinCambios, textoDelRenglon } from './sincronizar'
 
 /**
  * Las líneas del preview del sync del cronograma (0163).
@@ -83,5 +83,70 @@ describe('avisoFueraDeVentana', () => {
   it('una y varias', () => {
     expect(avisoFueraDeVentana(plan({ fuera_de_ventana: ['a'] }))).toBe('1 de las que conservan su fecha queda fuera de su ventana nueva')
     expect(avisoFueraDeVentana(plan({ fuera_de_ventana: ['a', 'b'] }))).toBe('2 de las que conservan su fecha quedan fuera de su ventana nueva')
+  })
+})
+
+/** Un renglón del detalle (0164); cada caso pisa lo suyo. */
+function renglon(over: Partial<DetalleDelSync> = {}): DetalleDelSync {
+  return {
+    grupo: 'fecha', visita_id: 'v1', inscripcion_id: 'i1', visita: 'V5 W12',
+    fecha: '2026-10-20', fecha_nueva: '2026-10-27', motivo: null, fuera_de_ventana: false,
+    ...over,
+  }
+}
+
+describe('gruposDelDetalle', () => {
+  it('crea, fecha, conserva y ventana, en ese orden, sólo los que tienen renglones', () => {
+    const detalle = [
+      renglon({ grupo: 'ventana', visita_id: 'v4', fecha_nueva: null }),
+      renglon({ grupo: 'conserva', visita_id: 'v3', fecha_nueva: null, motivo: 'a_mano' }),
+      renglon({ grupo: 'crea', visita_id: null, fecha: null }),
+    ]
+    expect(gruposDelDetalle(detalle).map((g) => g.grupo)).toEqual(['crea', 'conserva', 'ventana'])
+  })
+
+  it('los renglones de cada grupo quedan en el orden en que los manda el servidor', () => {
+    const detalle = [renglon({ visita_id: 'b' }), renglon({ grupo: 'crea', visita_id: null }), renglon({ visita_id: 'a' })]
+    expect(gruposDelDetalle(detalle).find((g) => g.grupo === 'fecha')?.filas.map((d) => d.visita_id)).toEqual(['b', 'a'])
+  })
+
+  it('el título del grupo, en singular y en plural', () => {
+    const uno = gruposDelDetalle([renglon({ grupo: 'conserva', motivo: 'a_mano' })])
+    const dos = gruposDelDetalle([renglon(), renglon({ visita_id: 'v2' })])
+    expect(uno[0].titulo).toBe('conserva su fecha')
+    expect(dos[0].titulo).toBe('cambian de fecha (no atendidas)')
+  })
+
+  it('sin detalle, sin grupos', () => {
+    expect(gruposDelDetalle([])).toEqual([])
+  })
+})
+
+describe('textoDelRenglon', () => {
+  it('cambia de fecha: la de hoy → la nueva', () => {
+    expect(textoDelRenglon(renglon()).texto).toBe('20 oct → 27 oct')
+  })
+
+  it('se crea: la fecha que va a tener', () => {
+    expect(textoDelRenglon(renglon({ grupo: 'crea', visita_id: null, fecha: null, fecha_nueva: '2026-11-12' })).texto).toBe('12 nov')
+  })
+
+  it('conserva: su fecha y por qué, para cada motivo', () => {
+    const conserva = (motivo: DetalleDelSync['motivo']) =>
+      textoDelRenglon(renglon({ grupo: 'conserva', fecha: '2026-10-23', fecha_nueva: null, motivo })).texto
+    expect(conserva('a_mano')).toBe('23 oct · se la dieron a mano')
+    expect(conserva('no_vino')).toBe('23 oct · tiene «No vino»')
+    expect(conserva('llegada')).toBe('23 oct · ya tiene la llegada marcada')
+    expect(conserva('listo')).toBe('23 oct · ya está lista para irse')
+  })
+
+  it('sólo ventana: su fecha, o «turno cancelado» si no tiene', () => {
+    expect(textoDelRenglon(renglon({ grupo: 'ventana', fecha_nueva: null })).texto).toBe('20 oct')
+    expect(textoDelRenglon(renglon({ grupo: 'ventana', fecha: null, fecha_nueva: null, motivo: 'cancelada' })).texto).toBe('turno cancelado')
+  })
+
+  it('la que queda fuera de su ventana nueva lo dice aparte (para pintarlo en ámbar); las demás, no', () => {
+    expect(textoDelRenglon(renglon({ grupo: 'conserva', motivo: 'a_mano', fuera_de_ventana: true })).fueraDeVentana).toBe('queda fuera de su ventana nueva')
+    expect(textoDelRenglon(renglon()).fueraDeVentana).toBeNull()
   })
 })

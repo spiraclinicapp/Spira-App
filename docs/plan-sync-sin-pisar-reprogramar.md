@@ -572,6 +572,32 @@ dejan las alternativas a la vista para saber qué se descartó.
 - [x] **T4 (P3)** — docs — la entrada de `TODOS.md`, borrada en el cierre del 17 (bitácora del 16, §21-§23); este plan
   con sus casillas.
 
+## Segunda vuelta: el detalle (0164)
+
+Pedido del Director el 17/10, después de ver el preview en prod: «En este caso tiene que darte un listado de las que
+se van a cambiar, de las que siguen igual en base a los cambios que estes intentando aplicar». Con la 0163 el
+preview cuenta, pero no dice cuáles. Decidido con la recomendada (preferencia del Director), sin otra ronda de
+`/plan-eng-review`: es la misma función, una clave más en la respuesta y la misma clasificación.
+
+- **E1 · El servidor manda el detalle; la app pone los nombres.** La 0164 re-declara `sync_protocol_schedule` con
+  `detalle`: un renglón por visita que se crea, cambia de fecha, conserva su fecha (cuando el sync de antes la habría
+  movido) o sólo toma la ventana nueva. Cada visita va en un solo grupo, con la visita, la fecha de hoy, la nueva y
+  el motivo. **Ids y fechas, sin nombres**, por la misma razón que `fuera_de_ventana` (D8): el sync es `security
+  definer`. La app lee nombre e IVRS de `enrollments` con su RLS (un renglón por inscripción, no por visita: una
+  lista larga no choca con el tope de filas de PostgREST).
+- **E2 · Se calcula en el cliente: no.** El cliente no tiene `fecha_del_cronograma` ni la deducción de la ventana; repetir
+  la clasificación en TypeScript es la duplicación que D7 sacó del SQL.
+- **E3 · Las que no cambian en nada no se listan.** Sólo las cuatro clases de arriba; «siguen igual» son las que
+  conservan su fecha, con su motivo: «se la dieron a mano», «tiene «No vino»», «ya tiene la llegada marcada», «ya está
+  lista para irse».
+- **E4 · El modal lista por grupo**: «2 visitas a crear», «5 cambian de fecha (no atendidas)», «3 conservan su fecha»,
+  «4 sólo ajustan su ventana», cada una con sus renglones (nombre, IVRS, visita, «20 oct → 27 oct» o «23 oct · se la
+  dieron a mano»). La que queda fuera de su ventana nueva lo dice en su renglón, en ámbar. Sin la 0164 (la respuesta
+  no trae `detalle`) el modal queda como en la 0163.
+- **Verificación:** `casos-0164.mjs` (10 casos, con la copia sin comentarios; el control que manda las conservadas a
+  otro grupo hace fallar 7); `sincronizar.test.ts` (20); el modal en el preview con un banco temporal.
+- **Orden:** la 0164 primero (aditiva: el front de hoy no lee la clave nueva), después el merge del front.
+
 ## GSTACK REVIEW REPORT
 
 | Review | Trigger | Why | Runs | Status | Findings |
