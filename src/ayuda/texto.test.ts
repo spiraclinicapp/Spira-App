@@ -1,7 +1,7 @@
 /**
  * El resaltado y los rótulos de la Ayuda (`texto.ts`). Fallan en silencio: un resaltado corrido o vacío se ve
- * «raro», no roto, y un rótulo mal cortado se come una palabra. El caso que justifica el archivo es el de las
- * tildes: se busca sin ellas y se marca el texto que las tiene.
+ * «raro», no roto, y un rótulo mal cortado se come una palabra. El caso que justifica el mapa de posiciones es
+ * el de la tilde escrita como letra + acento suelto (ver la cabecera de `texto.ts`).
  */
 import { describe, expect, it } from 'vitest'
 import { conRotulos, pedazosDeAyuda, resaltar } from './texto'
@@ -10,7 +10,7 @@ const marcados = (p: { texto: string; marcado: boolean }[]) => p.filter((x) => x
 const unido = (p: { texto: string }[]) => p.map((x) => x.texto).join('')
 
 describe('resaltar', () => {
-  it('CRÍTICO · sin tilde encuentra y marca el texto CON tilde, completo', () => {
+  it('sin tilde encuentra y marca el texto CON tilde, completo', () => {
     const p = resaltar('¿Cómo registro una recepción de medicación?', 'recepcion')
     expect(marcados(p)).toEqual(['recepción'])
     expect(unido(p)).toBe('¿Cómo registro una recepción de medicación?')
@@ -22,7 +22,7 @@ describe('resaltar', () => {
   it('las tildes ANTES de la coincidencia no corren el corte', () => {
     expect(marcados(resaltar('Dispensación, recepción y lote', 'lote'))).toEqual(['lote'])
   })
-  it('una tilde escrita como letra + acento suelto queda adentro de la marca', () => {
+  it('CRÍTICO · una tilde escrita como letra + acento suelto no corre la marca (el caso que justifica el mapa)', () => {
     const descompuesto = 'recepción'
     expect(marcados(resaltar(descompuesto, 'recepcion'))).toEqual([descompuesto])
   })

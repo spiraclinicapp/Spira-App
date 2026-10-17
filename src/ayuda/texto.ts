@@ -5,9 +5,11 @@ import { normalizar } from '../lib/texto'
    docs/plan-ayuda-manual.md (A18) y el handoff, §2 «Búsqueda» y §3 «Nombres de botones».
 
    PURO Y CON TEST porque falla en silencio de una manera concreta: la búsqueda NO distingue tildes ni mayúsculas
-   (`normalizar`), y quitar una tilde puede cambiar el largo del texto. Si el resaltado buscara en el texto
-   normalizado y cortara el original con esas posiciones, «recepcion» encontraría la respuesta pero marcaría un
-   pedazo corrido —o nada—, y nadie lo vería roto: se ve «raro». Por eso se lleva un mapa de posiciones.
+   (`normalizar`), y normalizar puede cambiar el largo del texto. Con la tilde escrita como un solo carácter («ó»,
+   lo común) el largo no cambia; con la letra y el acento como dos caracteres («o» + acento suelto, lo que deja
+   un texto pegado desde una Mac) sí, y cortar el original con las posiciones del texto normalizado marca un
+   pedazo corrido sin que nadie lo vea roto: se ve «raro». Por eso se lleva un mapa de posiciones. (La prueba de
+   mutación del 2026-10-18 lo confirmó: sin el mapa, sólo falla el caso del acento suelto.)
 
    Devuelve pedazos y no HTML: la vista los dibuja con React, sin `innerHTML`.
    ============================================================================ */
