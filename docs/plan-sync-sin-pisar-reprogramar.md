@@ -566,9 +566,9 @@ dejan las alternativas a la vista para saber qué se descartó.
   del sync (`p_apply = false`) sobre TEST-QA con una visita reprogramada, y en un estudio real **sólo el preview**
   - Verificar: el modal muestra «conservan la fecha que se les dio a mano»; nada se escribe en estudios reales
   - Hecho (2026-10-17): la 0163, aplicada por el Director con la copia sin comentarios. La API sin sesión ve la columna
-    y `cronograma_por_sincronizar` (`42501`, con controles inventados en `42703` y `PGRST202`). El cuerpo de las dos
-    funciones re-declaradas lo dice la sonda del editor (`generar`, `sync`). El bundle de prod (`8118a23`) trae el
-    modal nuevo. **Falta el QA con sesión del preview.**
+    y `cronograma_por_sincronizar` (`42501`, con controles inventados en `42703` y `PGRST202`), y el Director vio en el
+    editor el `prosrc` de las dos funciones re-declaradas con `fecha_del_cronograma` (`true`). El bundle de prod
+    (`8118a23`) trae el modal nuevo. **Falta el QA con sesión del preview.**
 - [x] **T4 (P3)** — docs — la entrada de `TODOS.md`, borrada en el cierre del 17 (bitácora del 16, §21-§23); este plan
   con sus casillas.
 
