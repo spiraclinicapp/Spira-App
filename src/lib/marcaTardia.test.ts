@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { marcaTardia } from './visits'
+import { marcaDeOtroDia, marcaTardia } from './visits'
 
 /**
  * ¿Una marca se registró DESPUÉS del día en que se hizo la visita? Es la regla que decide que una visita
@@ -35,5 +35,27 @@ describe('marcaTardia', () => {
 
   it('pasada la medianoche argentina ya es tardía (el precio de una visita que cruza la medianoche)', () => {
     expect(marcaTardia('2026-10-09T03:20:00+00:00', '2026-10-08')).toBe(true)
+  })
+})
+
+/**
+ * ¿La marca es de OTRO día que la fecha realizada, antes o después? Decide si la fila muestra «llegó
+ * 11:37»: una hora de otro día, al lado de la visita, dice que llegó ese día a esa hora (2026-10-16:
+ * llegó el 10 y la fecha realizada se corrigió al 13).
+ */
+describe('marcaDeOtroDia', () => {
+  it('sin marca o sin fecha realizada no hay otro día con qué compararla', () => {
+    expect(marcaDeOtroDia(null, '2026-10-13')).toBe(false)
+    expect(marcaDeOtroDia('2026-10-10T14:37:54+00:00', null)).toBe(false)
+  })
+
+  it('del mismo día argentino, no; aunque en UTC ya sea el siguiente', () => {
+    expect(marcaDeOtroDia('2026-10-13T12:00:00+00:00', '2026-10-13')).toBe(false)
+    expect(marcaDeOtroDia('2026-10-14T02:30:00+00:00', '2026-10-13')).toBe(false)
+  })
+
+  it('ANTERIOR o posterior a la fecha realizada, sí', () => {
+    expect(marcaDeOtroDia('2026-10-10T14:37:54+00:00', '2026-10-13')).toBe(true)
+    expect(marcaDeOtroDia('2026-10-15T21:29:00+00:00', '2026-10-13')).toBe(true)
   })
 })

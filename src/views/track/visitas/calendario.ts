@@ -10,7 +10,7 @@
    `getUTC*` el resultado es el mismo en cualquier zona.
    └─────────────────────────────────────────────────────────────────────────────────────────────┘ */
 import { isoDayAR } from '../../../lib/dates'
-import { marcaTardia, turnoCancelado } from '../../../lib/visits'
+import { turnoCancelado } from '../../../lib/visits'
 import type { FechasVisita, OperationalStage } from '../../../data/dayVisits'
 import type { VisitStatus } from '../../../data/visits'
 
@@ -183,27 +183,24 @@ export type FechasDeVisita = Omit<FechasVisita, 'id'>
  * dos reglas divergen, la semana muestra una visita en un día y al hacer clic en ese día, la lista no
  * la tiene. Por eso los dos test describen los mismos casos.
  *
- *   · la citación (`estimated_date`) sólo manda mientras la visita no se atendió y ninguna marca cayó
- *     DESPUÉS del día citado (llegó el 10 a una cita del 8: la cita está cumplida);
- *   · la fecha realizada (`real_date`), siempre;
- *   · las marcas operativas, en el día LOCAL en que pasaron (offset fijo −03:00, `isoDayAR`), salvo
- *     las TARDÍAS (`marcaTardia`): una marca posterior a la fecha realizada dice cuándo se cargó la
- *     visita, no cuándo vino el paciente (la del 8 cargada el 14 salía también el 14; 2026-10-14).
+ *   · con fecha realizada (`real_date`), ese día y NINGÚN OTRO. Ni la citación ni una marca de otro día
+ *     la duplican: posterior (la del 8 cargada el 14 salía también el 14; 2026-10-14) o anterior (la del
+ *     10 corregida al 13 salía el 10 y el 13; 2026-10-16);
+ *   · sin fecha realizada, las marcas operativas, en el día LOCAL en que pasaron (offset fijo −03:00,
+ *     `isoDayAR`), y la citación (`estimated_date`) mientras ninguna marca haya caído DESPUÉS del día
+ *     citado (llegó el 10 a una cita del 8: la cita está cumplida).
  *
- * Casi siempre es un solo día; puede ser más si una marca cayó ANTES de la fecha realizada (llegó a
- * las 23:50 y se inició la atención pasada la medianoche), y entonces aparece en los dos, igual que en
- * la lista del día. Una visita que cruza la medianoche al revés (inicio el 10, fin el 11) queda sólo
- * en el 10: el fin es posterior a su fecha.
+ * Con fecha realizada es siempre un día. Sin ella puede ser más: re-citada para el 15 después de llegar
+ * el 10, aparece en los dos («Perderla de su día es peor que mostrarla en dos», `motivosDelDia`).
  */
 export function diasDeLaVisita(v: FechasDeVisita): string[] {
-  const dias = new Set<string>()
+  if (v.real_date) return [v.real_date]
   const diasDeMarcas = [v.arrived_at, v.ready_at, v.left_at]
-    .filter((m): m is string => !!m && !marcaTardia(m, v.real_date))
+    .filter((m): m is string => !!m)
     .map(isoDayAR)
+  const dias = new Set(diasDeMarcas)
   const citacion = v.estimated_date
-  if (v.real_date === null && citacion && diasDeMarcas.every((d) => d <= citacion)) dias.add(citacion)
-  if (v.real_date) dias.add(v.real_date)
-  for (const d of diasDeMarcas) dias.add(d)
+  if (citacion && diasDeMarcas.every((d) => d <= citacion)) dias.add(citacion)
   return [...dias].sort()
 }
 

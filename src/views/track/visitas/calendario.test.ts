@@ -133,11 +133,21 @@ describe('de qué día es una visita (espejo de motivosDelDia)', () => {
     expect(diasDeLaVisita({ ...sinFechas, arrived_at: '2026-10-09T02:30:00+00:00' })).toEqual(['2026-10-08'])
   })
 
-  it('si una marca cayó el día ANTERIOR a la fecha realizada, la visita aparece en los dos', () => {
-    // Llegó a las 23:50 del 7 y la atención se inició pasada la medianoche: estuvo en el centro los dos días.
+  it('con fecha realizada, la visita es SÓLO de ese día: una marca anterior no la duplica', () => {
+    // El caso real del 2026-10-16: citada el 8, llegó el 10 a las 11:37, se cargó el 15
+    // con «Vino otro día» (fecha realizada 10) y el Director corrigió la fecha realizada al 13. La llegada
+    // del 10 quedó ANTES de la fecha: no era tardía, y la visita salía el 10 y el 13. Hubo que volverla
+    // al 10 para que no se viera doble.
+    expect(diasDeLaVisita({
+      ...sinFechas, estimated_date: '2026-10-08', real_date: '2026-10-13',
+      arrived_at: '2026-10-10T14:37:54+00:00', ready_at: '2026-10-15T21:29:00+00:00',
+    })).toEqual(['2026-10-13'])
+    // INVIERTE A PROPÓSITO la D3 de la 0158 («una llegada la noche anterior al inicio sigue contando su
+    // día»): llegó a las 23:50 del 7 y la atención se inició pasada la medianoche. Queda sólo en el 8, el
+    // día de la visita. Es raro, y mostrarla dos veces es justo lo que se reportó.
     expect(diasDeLaVisita({
       ...sinFechas, real_date: '2026-10-08', arrived_at: '2026-10-07T23:50:00-03:00',
-    })).toEqual(['2026-10-07', '2026-10-08'])
+    })).toEqual(['2026-10-08'])
   })
 
   it('una marca POSTERIOR a la fecha realizada es tardía: la visita se queda en su día', () => {
@@ -162,12 +172,14 @@ describe('de qué día es una visita (espejo de motivosDelDia)', () => {
   it('agrupa por día dentro del rango y cuenta una vez por período', () => {
     const a = { ...sinFechas, id: 'a', real_date: '2026-10-05' }
     const b = { ...sinFechas, id: 'b', real_date: '2026-10-04' } // domingo anterior: fuera
-    const c = { ...sinFechas, id: 'c', real_date: '2026-10-08', arrived_at: '2026-10-07T23:50:00-03:00' } // dos días
+    // Dos días: re-citada para el 9 después de llegar el 7, sin fecha realizada (ver «reprogramada DESPUÉS
+    // de la llegada»). Con fecha realizada ya no hay visitas de dos días.
+    const c = { ...sinFechas, id: 'c', estimated_date: '2026-10-09', arrived_at: '2026-10-07T10:50:00-03:00' }
     const porDia = visitasPorDia([a, b, c], '2026-10-05', '2026-10-11')
     expect(porDia.get('2026-10-05')?.map((v) => v.id)).toEqual(['a'])
     expect(porDia.has('2026-10-04')).toBe(false)
     expect(porDia.get('2026-10-07')?.map((v) => v.id)).toEqual(['c'])
-    expect(porDia.get('2026-10-08')?.map((v) => v.id)).toEqual(['c'])
+    expect(porDia.get('2026-10-09')?.map((v) => v.id)).toEqual(['c'])
     expect(visitasDelPeriodo([a, b, c], '2026-10-05', '2026-10-11').map((v) => v.id)).toEqual(['a', 'c'])
   })
 })

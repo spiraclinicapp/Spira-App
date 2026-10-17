@@ -376,18 +376,35 @@ export function fueraDeVentana(real: string | null, windowStart: string | null, 
  *
  * Pasa cuando una visita olvidada se carga días después (plan `docs/plan-visita-cargada-otro-dia.md`):
  * las marcas se sellan con `now()` y la fecha realizada es la del día que el paciente vino. Una marca
- * así no pone la visita en su día (`diasDeLaVisita`, `motivosDelDia`), no se muestra como hora de la
- * visita (el listón dice «cargada el 14 oct») y no entra en las duraciones de Estadísticas.
+ * así no entra en las duraciones de Estadísticas: medirían cuánto tardó alguien en apretar el botón.
  *
- * POSTERIOR y no distinta: una llegada la noche ANTERIOR al inicio de la atención sigue siendo de su
- * día. El precio: una visita que cruza la medianoche (inicio el 10, fin el 11 a las 00:20) toma el fin
- * como tardío. Es raro y la visita es del 10.
+ * POSTERIOR y no distinta: las marcas de un día ANTERIOR sí son horas que pasaron (llegó el 8 y la
+ * fecha realizada se corrigió al 10), y la espera de la llegada al fin sigue siendo real. El precio: una
+ * visita que cruza la medianoche (inicio el 10, fin el 11 a las 00:20) toma el fin como tardío. Es raro
+ * y la visita es del 10.
+ *
+ * Ya NO decide de qué día es la visita: con fecha realizada, es ése y ningún otro (`diasDeLaVisita`,
+ * `motivosDelDia`; 2026-10-16). Ni qué hora muestra la fila: ésa es `marcaDeOtroDia`.
  *
  * El día de la marca es el argentino (`isoDayAR`), el mismo borde que la consulta manda a Postgres.
  */
 export function marcaTardia(marca: string | null | undefined, realDate: string | null | undefined): boolean {
   if (!marca || !realDate) return false
   return isoDayAR(marca) > realDate
+}
+
+/**
+ * ¿Esta marca cayó un día DISTINTO de la fecha realizada, antes o después? Una hora así, al lado de la
+ * visita, dice que llegó ese día a esa hora: «llegó 11:37» en la del 13 cuando llegó el 10 (2026-10-16), o
+ * «llegó 09:51» en la del 8 cargada el 14. La fila no la muestra.
+ *
+ * Distinta y no posterior (ver `marcaTardia`): una hora de otro día no es la hora de ESTA visita, sea del
+ * día antes o de la semana después. Sin fecha realizada no hay con qué compararla: la fila está en el día
+ * de la marca, o en el de la citación, y la hora vale.
+ */
+export function marcaDeOtroDia(marca: string | null | undefined, realDate: string | null | undefined): boolean {
+  if (!marca || !realDate) return false
+  return isoDayAR(marca) !== realDate
 }
 
 /**
