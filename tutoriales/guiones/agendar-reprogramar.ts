@@ -48,6 +48,7 @@ export default guion('agendar-reprogramar', {
         await e.moverA(e.page.getByRole('button', { name: 'Agendar visita' }))
       },
       capitulo: 'La ficha',
+      resumen: 'En la ficha del paciente está su cronograma: desde ahí se agenda y se reprograma.',
     },
     {
       dice: 'Para agendar, pulsá el botón «Agendar visita».',
@@ -56,6 +57,7 @@ export default guion('agendar-reprogramar', {
         await expect(dialogo(e, 'Agendar visita').getByText('Cargando visitas…')).toHaveCount(0, { timeout: 15_000 })
       },
       capitulo: 'Agendar',
+      resumen: 'Pulsá el botón «Agendar visita», elegí qué vas a hacer, poné la fecha y pulsá el botón «Agendar».',
     },
     {
       dice: 'Elegí qué vas a hacer. Por ejemplo, una VNP: una visita no programada.',
@@ -88,6 +90,7 @@ export default guion('agendar-reprogramar', {
         await e.moverA(dialogo(e, 'Reagendar visita').getByText(/^Ventana permitida/))
       },
       capitulo: 'Reprogramar',
+      resumen: 'Pulsá el botón «Reprogramar», escribí la nueva fecha y pulsá el botón «Guardar fecha».',
     },
     {
       dice: 'Arriba ves la ventana permitida. Escribí la nueva fecha y pulsá el botón «Guardar fecha».',
@@ -104,6 +107,7 @@ export default guion('agendar-reprogramar', {
         await e.clic(dialogo(e, 'Reagendar visita').getByRole('button', { name: 'Volver' }))
       },
       capitulo: 'Fuera de la ventana',
+      resumen: 'Si la fecha cae fuera de la ventana, pulsá el botón «Volver» para cambiarla o «Confirmar igual».',
     },
     {
       dice: 'Con una fecha dentro de la ventana, se guarda directamente.',

@@ -88,7 +88,11 @@ export async function grabarGuion(browser: Browser, g: Guion, opciones: { baseUR
     const accionMs = Date.now() - antes
     const audioMs = audios[i]?.duracionMs ?? 0
     await page.waitForTimeout(esperaRestante(audioMs, accionMs))
-    medidos.push({ inicioMs, audioMs, accionMs, texto: paso.dice.trim(), ...(paso.capitulo ? { capitulo: paso.capitulo } : {}) })
+    medidos.push({
+      inicioMs, audioMs, accionMs, texto: paso.dice.trim(),
+      ...(paso.capitulo ? { capitulo: paso.capitulo } : {}),
+      ...(paso.resumen ? { resumen: paso.resumen } : {}),
+    })
   }
   /* El video se corta donde termina el último paso, más un respiro corto para que no se corte en seco. */
   const finMs = Date.now() - t0 + RESPIRO_FINAL_MS

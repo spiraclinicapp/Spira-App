@@ -25,6 +25,8 @@ export interface PasoMedido {
   accionMs: number
   texto: string
   capitulo?: string
+  /** El resumen corto del capítulo que abre este paso (ver `Paso.resumen`). */
+  resumen?: string
 }
 
 export interface Tramo {
@@ -32,6 +34,7 @@ export interface Tramo {
   finMs: number
   texto: string
   capitulo?: string
+  resumen?: string
 }
 
 /**
@@ -44,10 +47,47 @@ export function armarTramos(pasos: readonly PasoMedido[]): Tramo[] {
     finMs: p.inicioMs + Math.max(p.audioMs, 1),
     texto: p.texto,
     ...(p.capitulo ? { capitulo: p.capitulo } : {}),
+    ...(p.resumen ? { resumen: p.resumen } : {}),
   }))
 }
 
-/** Los capítulos del reproductor: un salto por cada paso que declara uno. */
-export function armarCapitulos(tramos: readonly Tramo[]): { inicioMs: number; titulo: string }[] {
-  return tramos.filter((t) => t.capitulo).map((t) => ({ inicioMs: t.inicioMs, titulo: t.capitulo! }))
+export interface CapituloArmado { inicioMs: number; titulo: string; texto: string }
+
+/**
+ * Los capítulos del reproductor: un salto por cada paso que declara uno, con su resumen como `texto`. Es lo que se
+ * lee en la lista de capítulos de la Ayuda y en el «Paso a paso» del manual (docs/plan-ayuda-manual.md, A1 y A4).
+ * Un capítulo sin resumen no se escribe a medias: frena la grabación, como `problemasDeCapitulos` frena el guion.
+ */
+export function armarCapitulos(tramos: readonly Tramo[]): CapituloArmado[] {
+  return tramos.filter((t) => t.capitulo).map((t) => {
+    const texto = t.resumen?.trim() ?? ''
+    if (!texto) throw new Error(`El capítulo «${t.capitulo}» no tiene resumen`)
+    return { inicioMs: t.inicioMs, titulo: t.capitulo!, texto }
+  })
+}
+
+/**
+ * Las reglas de los capítulos de un guion, que se chequean al cargarlo (`guion()`), antes de gastar una toma:
+ *  · todo capítulo lleva su resumen, y un resumen sin capítulo no tiene dónde ir (seguro es un error de tipeo);
+ *  · si hay capítulos, el primero abre en el primer paso: si no, los primeros segundos del video no son de ningún
+ *    capítulo y el número de la lista no coincide con lo que se ve;
+ *  · dos capítulos no se llaman igual: las preguntas frecuentes apuntan a un capítulo por su título.
+ * Devuelve los problemas en castellano (vacío = está bien), para que el error los nombre todos de una vez.
+ */
+export function problemasDeCapitulos(pasos: readonly { capitulo?: string; resumen?: string }[]): string[] {
+  const problemas: string[] = []
+  const vistos = new Set<string>()
+  pasos.forEach((p, i) => {
+    const n = i + 1
+    const titulo = p.capitulo?.trim()
+    const resumen = p.resumen?.trim()
+    if (titulo && !resumen) problemas.push(`el paso ${n} abre el capítulo «${titulo}» sin resumen`)
+    if (resumen && !titulo) problemas.push(`el paso ${n} tiene resumen pero no abre ningún capítulo`)
+    if (titulo) {
+      if (vistos.has(titulo)) problemas.push(`el capítulo «${titulo}» está repetido (paso ${n})`)
+      vistos.add(titulo)
+    }
+  })
+  if (vistos.size > 0 && !pasos[0]?.capitulo?.trim()) problemas.push('el primer paso no abre un capítulo')
+  return problemas
 }

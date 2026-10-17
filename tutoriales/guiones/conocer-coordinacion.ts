@@ -44,11 +44,13 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByText('Submódulos', { exact: true }))
       },
       capitulo: 'El módulo',
+      resumen: 'A la izquierda están las pantallas de Coordinación.',
     },
     {
       dice: 'El Resumen muestra cómo viene el día: las visitas de hoy, los atrasados y las próximas visitas. Cada tarjeta te lleva a su pantalla.',
       hace: async (e) => { await e.moverA(e.page.getByRole('button', { name: /^Visitas de hoy:/ })) },
       capitulo: 'Resumen',
+      resumen: 'Cómo viene el día: las visitas de hoy, los atrasados y las próximas visitas.',
       /* El póster va acá: la pantalla ya cargó. En el primer paso, a 0,8 s, todavía está en blanco. */
       poster: true,
     },
@@ -59,6 +61,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByRole('button', { name: /ACME-301/ }).first())
       },
       capitulo: 'Estudios y pacientes',
+      resumen: 'Los estudios del centro y, adentro de cada uno, sus pacientes.',
     },
     {
       dice: 'Visitas es el día de trabajo: los pacientes citados, cada uno con su etapa. Arriba lo cambiás a Semana o a Mes.',
@@ -67,6 +70,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByRole('tab', { name: 'Semana' }))
       },
       capitulo: 'Visitas',
+      resumen: 'El día de trabajo: los citados y en qué etapa está cada visita.',
     },
     {
       dice: 'Para ver médico es la cola de los pacientes que están en el centro y esperan al médico.',
@@ -75,6 +79,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByText('En la cola', { exact: true }).first())
       },
       capitulo: 'Para ver médico',
+      resumen: 'La cola de los pacientes que están en el centro y esperan al médico.',
     },
     {
       dice: 'En Pendientes está lo que hay que resolver: ventanas vencidas, visitas por reprogramar, reportes sin hacer, entre otras cosas.',
@@ -83,6 +88,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByRole('button', { name: /^Documentar la desviación de/ }).first())
       },
       capitulo: 'Pendientes',
+      resumen: 'Lo que hay que resolver: ventanas vencidas, visitas por reprogramar, reportes sin hacer.',
     },
     {
       dice: 'Reportes junta los reportes pendientes de cada paciente, visita por visita.',
@@ -91,6 +97,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByRole('heading', { level: 1, name: 'Reportes' }))
       },
       capitulo: 'Reportes',
+      resumen: 'Los reportes pendientes de cada paciente, visita por visita.',
     },
     {
       dice: 'Tareas es tu lista personal: lo que anotaste para no olvidarte.',
@@ -99,6 +106,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByRole('button', { name: 'Nueva tarea' }).first())
       },
       capitulo: 'Tareas',
+      resumen: 'Tu lista personal, para no olvidarte de nada.',
     },
     {
       dice: 'Y Estadísticas, que ven los Líderes y gerencia, muestra los números del período por estudio.',
@@ -107,6 +115,7 @@ export default guion('conocer-coordinacion', {
         await e.moverA(e.page.getByRole('heading', { name: 'Proyección del próximo mes' }))
       },
       capitulo: 'Estadísticas',
+      resumen: 'Los números del período, por estudio. Sólo para Líderes y gerencia.',
     },
     {
       dice: 'Si una pantalla tiene un tutorial, al lado del título vas a ver el botón «Cómo se hace».',

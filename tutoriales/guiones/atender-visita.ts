@@ -31,6 +31,7 @@ export default guion('atender-visita', {
         await e.moverA(fila(e).getByText('Rosa Medina').first())
       },
       capitulo: 'Visitas de hoy',
+      resumen: 'En Visitas ves a los citados del día, con su estudio y la etapa de cada visita.',
     },
     {
       dice: 'Cuando el paciente llega, pulsá el botón «Marcar llegada». Queda registrada la hora.',
@@ -39,6 +40,7 @@ export default guion('atender-visita', {
         await etapa(e, 'Iniciar atención').waitFor({ timeout: 15_000 })
       },
       capitulo: 'La llegada',
+      resumen: 'Cuando el paciente llega, pulsá el botón «Marcar llegada»: queda registrada la hora.',
     },
     {
       dice: 'Al lado del nombre aparece la hora de llegada. Cuando empieza la atención, pulsá el botón «Iniciar atención».',
@@ -47,6 +49,7 @@ export default guion('atender-visita', {
         await etapa(e, 'Fin de atención').waitFor({ timeout: 15_000 })
       },
       capitulo: 'La atención',
+      resumen: 'Cuando empieza la atención, pulsá el botón «Iniciar atención».',
     },
     {
       dice: 'Al terminar, pulsá el botón «Fin de atención». Si quedaron procedimientos sin marcar, Spira te avisa antes de cerrarla.',
@@ -55,6 +58,7 @@ export default guion('atender-visita', {
         await fila(e).getByText('Realizada', { exact: true }).first().waitFor({ timeout: 15_000 })
       },
       capitulo: 'El fin',
+      resumen: 'Al terminar, pulsá el botón «Fin de atención». Si quedaron procedimientos sin marcar, Spira te avisa.',
     },
     {
       dice: 'Listo: la visita queda en Finalizadas. Si pulsás la fila, se abre el detalle de la visita.',

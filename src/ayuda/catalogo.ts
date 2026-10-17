@@ -11,7 +11,14 @@ import type { ModuloAyuda } from './reglas'
    1:20 en el reproductor es la clase de detalle que hace dudar de todo lo demás.
    ============================================================================ */
 
-export interface Capitulo { inicioMs: number; titulo: string }
+export interface Capitulo {
+  inicioMs: number
+  titulo: string
+  /** El resumen del capítulo (el `resumen` del guion, que la fábrica copia al grabar; docs/plan-ayuda-manual.md, A1).
+   *  Opcional porque los videos grabados antes del 2026-10-18 no lo tienen: hasta regrabarlos, el capítulo se
+   *  muestra sólo con su título. */
+  texto?: string
+}
 
 /** Lo que escribe la fábrica por tutorial, en `tutoriales.meta.json` (`tutoriales/lib/grabar.ts`, `escribirMeta`). */
 export interface MetaTutorial {
@@ -50,12 +57,16 @@ export function tutorialesDelAlcance(visibles: readonly Publicado[], modulo: Mod
   return modulo ? visibles.filter((t) => t.modulo === modulo || t.modulo === 'general') : [...visibles]
 }
 
-/** Con texto, como las preguntas: en todo lo visible, por título, resumen, descripción y lo que dice la voz. */
+/** Con texto, como las preguntas: en todo lo visible, por título, resumen, descripción, capítulos y lo que dice la voz. */
 export function buscarTutoriales(visibles: readonly Publicado[], termino: string): Publicado[] {
   const t = normalizar(termino.trim())
   if (!t) return [...visibles]
   return visibles.filter((x) =>
-    [x.titulo, x.resumen, x.descripcion, ...x.meta.transcripcion].some((campo) => normalizar(campo).includes(t)))
+    [
+      x.titulo, x.resumen, x.descripcion,
+      ...x.meta.capitulos.flatMap((c) => [c.titulo, c.texto ?? '']),
+      ...x.meta.transcripcion,
+    ].some((campo) => normalizar(campo).includes(t)))
 }
 
 /** El que sigue en la lista (el orden de un curso), o null si es el último. */

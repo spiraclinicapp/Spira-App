@@ -8,7 +8,7 @@ import type { Meta, MetaTutorial, Publicado } from './catalogo'
 import META from './tutoriales.meta.json'
 import { TUTORIALES } from './tutoriales'
 import type { Tutorial } from './tutoriales'
-import { alcanzaParaVisto, CLAVE_VISTOS, leerVistos, marcarVisto } from './visto'
+import { alcanzaParaVisto, CLAVE_VIEJA, claveDeVistos, leerVistos, marcarVisto } from './visto'
 
 /**
  * Los tutoriales en video (plan de tutoriales, T5).
@@ -124,7 +124,12 @@ describe('tiempos', () => {
 describe('visto', () => {
   const memoria = () => {
     const m = new Map<string, string>()
-    return { getItem: (k: string) => m.get(k) ?? null, setItem: (k: string, v: string) => { m.set(k, v) } }
+    return {
+      m,
+      getItem: (k: string) => m.get(k) ?? null,
+      setItem: (k: string, v: string) => { m.set(k, v) },
+      removeItem: (k: string) => { m.delete(k) },
+    }
   }
   it('CRÍTICO · abrirlo no alcanza: visto es terminado o ≥ 90 % reproducido', () => {
     expect(alcanzaParaVisto(5, 80)).toBe(false)
@@ -135,16 +140,34 @@ describe('visto', () => {
   })
   it('marcar y leer', () => {
     const a = memoria()
-    marcarVisto('dispensar', a)
-    expect([...leerVistos(a)]).toEqual(['dispensar'])
+    marcarVisto('dispensar', 'u1', a)
+    expect([...leerVistos('u1', a)]).toEqual(['dispensar'])
+  })
+  it('CRÍTICO · es por usuario: en la misma computadora, lo que vio una no se lo apaga a la otra', () => {
+    const a = memoria()
+    marcarVisto('dispensar', 'coordinadora', a)
+    expect(leerVistos('farmaceutica', a).size).toBe(0)
+    expect([...leerVistos('coordinadora', a)]).toEqual(['dispensar'])
+  })
+  it('sin usuario no se guarda nada (y lo de memoria igual vuelve)', () => {
+    const a = memoria()
+    expect([...marcarVisto('dispensar', null, a)]).toEqual(['dispensar'])
+    expect(a.m.size).toBe(0)
+    expect(leerVistos(null, a).size).toBe(0)
+  })
+  it('la clave vieja, sin usuario, no se le atribuye a nadie: se borra', () => {
+    const a = memoria()
+    a.setItem(CLAVE_VIEJA, JSON.stringify(['dispensar']))
+    expect(leerVistos('u1', a).size).toBe(0)
+    expect(a.getItem(CLAVE_VIEJA)).toBeNull()
   })
   it('un almacenamiento que tira, o un valor roto, no rompe nada: todo «no visto»', () => {
     const roto = { getItem: () => { throw new Error('bloqueado') }, setItem: () => { throw new Error('bloqueado') } }
-    expect(leerVistos(roto).size).toBe(0)
-    expect([...marcarVisto('x', roto)]).toEqual(['x'])
+    expect(leerVistos('u1', roto).size).toBe(0)
+    expect([...marcarVisto('x', 'u1', roto)]).toEqual(['x'])
     const basura = memoria()
-    basura.setItem(CLAVE_VISTOS, '{no es json')
-    expect(leerVistos(basura).size).toBe(0)
-    expect(leerVistos(null).size).toBe(0)
+    basura.setItem(claveDeVistos('u1'), '{no es json')
+    expect(leerVistos('u1', basura).size).toBe(0)
+    expect(leerVistos('u1', null).size).toBe(0)
   })
 })

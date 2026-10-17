@@ -24,6 +24,10 @@ export interface Pregunta {
   palabras?: string[]
   /** El tutorial en video que muestra esto (id de `tutoriales.ts`). El «Ver cómo se hace» sale sólo si está publicado. */
   tutorial?: string
+  /** El TÍTULO del capítulo de ese tutorial donde se ve la respuesta: la Ayuda ofrece «▶ 0:26 en el video» y salta
+   *  ahí (docs/plan-ayuda-manual.md, A3). Va por título y no por número porque una regrabación puede sumar un
+   *  capítulo antes; si lo renombra, el test de `preguntas.test.ts` falla. Sólo con `tutorial`. */
+  capitulo?: string
 }
 
 type Permitido = (moduleKey: string) => boolean

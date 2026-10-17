@@ -188,7 +188,7 @@ export function AppShell() {
   /* La Ayuda —panel, reproductor de tutoriales, «vistos»— vive acá y sus capas se montan como HERMANAS del
      feedback, nunca adentro de otra capa: el fondo del Drawer lleva `backdropFilter` y encerraría a cualquier
      hijo fijo (docs/plan-tutoriales.md, «Capas y foco»). Ver `ayuda/AyudaProvider.tsx`. */
-  const ayuda = useEstadoAyuda(isAllowed, import.meta.env.VITE_SUPABASE_URL)
+  const ayuda = useEstadoAyuda(isAllowed, import.meta.env.VITE_SUPABASE_URL, session?.user.id ?? null)
   /* `Pistas` vive afuera del shell (también cubre el login): la tarjeta del tutorial le llega por el puente. Al
      salir de la sesión se despublica, y todo `title` vuelve a ser pista de texto. */
   useEffect(() => {
