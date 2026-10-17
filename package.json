@@ -1,7 +1,7 @@
 {
   "name": "spira-app",
   "private": true,
-  "version": "0.114.0",
+  "version": "0.115.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

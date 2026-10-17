@@ -2,7 +2,7 @@ import { Icon } from '../../components/Icon'
 import type { IconName } from '../../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
 import { formatTimeAR, todayISO } from '../../lib/dates'
-import { marcaTardia, visitCode } from '../../lib/visits'
+import { marcaDeOtroDia, visitCode } from '../../lib/visits'
 import { KIND_LABELS } from '../../lib/visitLabels'
 import type { DayVisitRow, OperationalStage } from '../../data/dayVisits'
 import type { ResumenVisita } from './resumenVisita'
@@ -123,9 +123,10 @@ export function DayVisitRowItem({
             </span>
             {onOpenPatient && <PatientLinkArrow />}
           </span>
-          {/* Una llegada TARDÍA (registrada después de la fecha de la visita, `marcaTardia`) no se
-              muestra: «llegó 09:51» en la visita del 8 cargada el 14 dice una hora que no pasó. */}
-          {visit.arrived_at && !marcaTardia(visit.arrived_at, visit.real_date) && (
+          {/* Una llegada de OTRO DÍA que la fecha realizada (`marcaDeOtroDia`) no se muestra: «llegó
+              09:51» en la visita del 8 cargada el 14 dice una hora que no pasó, y «llegó 11:37» en la
+              del 13 que llegó el 10 dice que llegó el 13. */}
+          {visit.arrived_at && !marcaDeOtroDia(visit.arrived_at, visit.real_date) && (
             <span className="spira-mono" style={{ fontSize: 12, color: 'var(--spira-ink-soft)', whiteSpace: 'nowrap', flexShrink: 0 }}>
               llegó {formatTimeAR(visit.arrived_at)}
             </span>

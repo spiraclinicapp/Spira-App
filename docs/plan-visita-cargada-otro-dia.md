@@ -144,6 +144,13 @@ marca cayó otro día, la visita aparece en los dos»). Es raro y la visita *es*
 visitas ya cargadas así (Rafael Gibeaud y Emmanuel Azcurra, V4 W8 de 222714, si se cargaron igual), sin tocar
 datos.
 
+> **Superada el 2026-10-16 para el día de la visita.** El *posterior y no distinta* dejaba pasar las marcas
+> ANTERIORES, y por ahí se duplicaba: una visita que llegó el 10 y a la que se le corrigió la fecha realizada al
+> 13 salía el 10 y el 13 (el Director tuvo que volverla al 10). Ahora, con fecha realizada, la visita es de ese
+> día y de ningún otro (`motivosDelDia`, `motivosDelRango`, `diasDeLaVisita`); la llegada de la noche anterior
+> queda sólo en el día del inicio. La fila tampoco muestra una hora de otro día (`marcaDeOtroDia`).
+> `marcaTardia` sigue igual para las duraciones de Estadísticas.
+
 **D4 · No cierra la visita (auto).** La deja «En atención» con su fecha; se finaliza con el botón de siempre.
 Cerrarla en el mismo paso duplicaría el cierre clínico de screening (IVRS) y randomización.
 

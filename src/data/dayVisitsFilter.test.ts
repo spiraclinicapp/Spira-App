@@ -31,14 +31,14 @@ describe('motivosDelDia', () => {
     expect(motivosDelDia(DIA)).toContain(`real_date.eq.${DIA}`)
   })
 
-  it('las tres marcas operativas van ancladas a -03:00, no a UTC, y no cuentan si son tardías', () => {
-    // Tardía = posterior a la fecha realizada (`marcaTardia`): la visita del 8 cargada el 14 con los
-    // botones tiene sus tres marcas el 14, y sin esta condición salía también ese día (2026-10-14).
+  it('las tres marcas operativas van ancladas a -03:00, no a UTC, y sólo cuentan sin fecha realizada', () => {
+    // Con fecha realizada la visita es de ESE día y de ningún otro: lo trae `real_date.eq`. Una marca de
+    // otro día no la duplica, ni posterior (la del 8 cargada el 14 con los botones, 2026-10-14) ni
+    // anterior (la del 10 a la que se le corrigió la fecha realizada al 13, 2026-10-16).
     const m = motivosDelDia(DIA)
     for (const marca of ['arrived_at', 'ready_at', 'left_at']) {
       expect(m).toContain(
-        `and(${marca}.gte.${DIA}T00:00:00-03:00,${marca}.lte.${DIA}T23:59:59.999-03:00,`
-        + `or(real_date.is.null,real_date.gte.${DIA}))`,
+        `and(${marca}.gte.${DIA}T00:00:00-03:00,${marca}.lte.${DIA}T23:59:59.999-03:00,real_date.is.null)`,
       )
     }
   })
@@ -80,17 +80,15 @@ describe('motivosDelRango', () => {
   })
 
   it('las marcas van del primer minuto del primer día al último del último, en -03:00', () => {
-    // Las tardías se descartan con el PRIMER día del rango: superconjunto exacto (una marca dentro del
-    // rango con fecha realizada anterior al rango es tardía en cualquier celda); la regla fina, por día,
-    // la aplica `diasDeLaVisita`.
+    // Y, como en un día, sólo sin fecha realizada: con ella la visita entra por su fecha o no entra.
     const m = motivosDelRango(DESDE, HASTA)
     for (const marca of ['arrived_at', 'ready_at', 'left_at']) {
       expect(m).toContain(
-        `and(${marca}.gte.${DESDE}T00:00:00-03:00,${marca}.lte.${HASTA}T23:59:59.999-03:00,`
-        + `or(real_date.is.null,real_date.gte.${DESDE}))`,
+        `and(${marca}.gte.${DESDE}T00:00:00-03:00,${marca}.lte.${HASTA}T23:59:59.999-03:00,real_date.is.null)`,
       )
     }
-    for (const c of m) expect(c).not.toMatch(/Tdd:dd:dd(.d+)?Z/)
+    // (Decía `/Tdd:dd:dd…/`, sin las barras: no podía fallar nunca.)
+    for (const c of m) expect(c).not.toMatch(/T\d\d:\d\d:\d\d(\.\d+)?Z/)
   })
 
   it('son los mismos cinco motivos que un día', () => {

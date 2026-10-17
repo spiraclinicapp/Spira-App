@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spira · Manual de usuario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Schibsted+Grotesk:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#14302E;--primary:#0F5F57;--paper:#F4F1EA;--surface:#FBFAF6;--white:#FFFFFF;--muted:#7C8C87;--faint:#A6B0AC;--ink-soft:#556966;--line:#E4DECF;--line-2:#D8CBB0;--on-accent:#F4F1EA;--fd:'Schibsted Grotesk',system-ui,sans-serif;--ft:'Inter',system-ui,sans-serif;--fm:'JetBrains Mono',ui-monospace,monospace}
+*{box-sizing:border-box}
+body{margin:0;background:#EDE9DF;color:var(--ink);font-family:var(--ft);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--primary);text-decoration:none}a:hover{color:var(--ink)}
+button{font-family:inherit;color:inherit;cursor:pointer}
+.wrap{max-width:1360px;margin:0 auto;padding:38px 26px 120px}
+h1{font-family:var(--fd);font-weight:700;font-size:27px;letter-spacing:-.02em;line-height:1.1;margin:0}
+.lede{color:var(--ink-soft);font-size:14.5px;margin:9px 0 0;max-width:82ch;text-wrap:pretty}
+.grp{font-family:var(--fd);font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:56px 0 0;padding-bottom:10px;border-bottom:1px solid var(--line-2)}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,400px),1fr));gap:28px;margin-top:22px;align-items:start}
+.opt{display:flex;flex-direction:column;gap:10px;min-width:0}
+.oh{display:flex;align-items:baseline;gap:9px}
+.badge{flex:0 0 auto;font:700 11.5px/1 var(--fd);padding:5px 7px;border-radius:6px;background:var(--ink);color:var(--on-accent)}
+.ot{font-family:var(--fd);font-weight:700;font-size:16.5px;letter-spacing:-.01em}
+.od{color:var(--ink-soft);font-size:13.2px;line-height:1.55;margin:0;text-wrap:pretty}
+.od b{color:var(--ink)}
+.ico{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
+.mono{font-family:var(--fm);font-size:11.5px}
+
+/* panel */
+.panel{background:var(--white);border:1px solid var(--line);border-radius:14px;box-shadow:0 14px 34px rgba(20,48,46,.10);height:660px;display:flex;flex-direction:column;overflow:hidden}
+.ph{padding:18px 20px 12px;display:flex;flex-direction:column;gap:12px;border-bottom:1px solid var(--line)}
+.pt{display:flex;align-items:center;justify-content:space-between}
+.pt h3{margin:0;font:700 21px/1.1 var(--fd);letter-spacing:-.01em}
+.x{border:0;background:transparent;color:var(--ink-soft);padding:4px;display:grid}
+.search{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:10px;color:var(--muted);font-size:13.5px}
+.ctx{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+.ctx b{color:var(--ink);font-weight:600}
+.ctx .sw{margin-left:auto;font-weight:600;color:var(--primary)}
+.pb{flex:1;overflow:auto;padding:6px 20px 16px}
+.pf{border-top:1px solid var(--line);padding:11px 20px;display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-soft)}
+.pf a{font-weight:600}
+.pf .r{margin-left:auto;display:flex;align-items:center;gap:5px}
+.sec{font:800 10.5px/1 var(--fd);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:16px 0 4px;display:flex;justify-content:space-between}
+.sec span{font:500 11.5px/1 var(--ft);letter-spacing:0;text-transform:none}
+
+/* play disk + animación en el play */
+.disk{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--primary);display:grid;place-items:center;position:relative;border:0;padding:0}
+.disk svg{width:10px;height:10px;fill:var(--on-accent);margin-left:2px}
+.disk.sm{width:20px;height:20px}.disk.sm svg{width:8px;height:8px}
+.disk.lg{width:54px;height:54px;box-shadow:0 6px 18px rgba(15,95,87,.35)}.disk.lg svg{width:18px;height:18px;margin-left:3px}
+.disk.new::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--primary);animation:halo 2.4s ease-out infinite}
+@keyframes halo{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(1.85);opacity:0}}
+.disk.seen{background:var(--white);border:1.5px solid var(--primary)}.disk.seen svg{fill:var(--primary)}
+.dur{font-family:var(--fm);font-size:11px;color:var(--muted)}
+
+/* accordion de preguntas */
+.q{border-bottom:1px solid var(--line)}
+.qb{width:100%;display:flex;align-items:center;gap:10px;padding:13px 0;border:0;background:transparent;text-align:left;font-weight:600;font-size:13.8px;color:var(--ink)}
+.qb .qt{flex:1;min-width:0;text-wrap:pretty}
+.qb .chev{color:var(--faint);transition:transform .15s}
+.q.open .chev{transform:rotate(180deg)}
+.qa{display:none;padding:0 0 14px;font-size:13.2px;color:var(--ink-soft);line-height:1.55}
+.q.open .qa{display:block}
+.qa p{margin:0 0 9px;text-wrap:pretty}
+.qmeta{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+.tag-txt{font-size:11px;color:var(--faint)}
+
+/* video */
+.vid{position:relative;border-radius:10px;overflow:hidden;border:1px solid var(--line);aspect-ratio:16/9;background:repeating-linear-gradient(135deg,#EFEBE1 0 10px,#F6F3EC 10px 20px)}
+.vid .lbl{position:absolute;left:10px;top:9px;font-family:var(--fm);font-size:10.5px;color:var(--muted)}
+.vid .center{position:absolute;inset:0;display:grid;place-items:center}
+.vid .cd{position:absolute;right:8px;bottom:8px;background:rgba(20,48,46,.82);color:var(--on-accent);font-family:var(--fm);font-size:11px;padding:2px 6px;border-radius:5px}
+.vid .bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(20,48,46,.12);display:none}
+.vid .bar i{display:block;height:100%;width:0;background:var(--primary)}
+.vid.playing .bar{display:block}
+.vid.playing .bar i{animation:prog var(--d,41s) linear forwards}
+.vid.playing .center .disk{opacity:0;transform:scale(.6);transition:.2s}
+.vid.playing::before{content:"reproduciendo…";position:absolute;left:10px;bottom:12px;font-family:var(--fm);font-size:10.5px;color:var(--primary)}
+@keyframes prog{to{width:100%}}
+.vfoot{display:flex;align-items:center;gap:10px;margin-top:8px;font-size:12px;color:var(--muted)}
+.vfoot a{margin-left:auto;font-weight:600;display:flex;align-items:center;gap:5px}
+
+/* 1c tarjetas */
+.tcard{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);align-items:flex-start}
+.thumb{flex:0 0 auto;width:96px;aspect-ratio:16/10;border-radius:8px;border:1px solid var(--line);background:repeating-linear-gradient(135deg,#EFEBE1 0 7px,#F6F3EC 7px 14px);position:relative;display:grid;place-items:center}
+.thumb .cd{position:absolute;right:4px;bottom:4px;background:rgba(20,48,46,.82);color:var(--on-accent);font-family:var(--fm);font-size:10px;padding:1px 4px;border-radius:4px}
+.tcard .tt{font-weight:600;font-size:13.6px;line-height:1.35}
+.tcard .ts{font-size:12.3px;color:var(--ink-soft);margin-top:3px;line-height:1.45}
+.tcard .tm{font-size:11.5px;color:var(--muted);margin-top:5px;display:flex;gap:8px}
+
+/* 1b capítulos */
+.chap{display:flex;gap:10px;padding:10px 8px;margin:0 -8px;border-radius:8px;align-items:flex-start;border:0;background:transparent;width:calc(100% + 16px);text-align:left}
+.chap:hover{background:var(--paper)}
+.chap.on{background:#E6EFEC}
+.chap .n{flex:0 0 auto;width:20px;height:20px;border-radius:50%;border:1.5px solid var(--line-2);font:700 10.5px/17px var(--fd);text-align:center;color:var(--ink-soft)}
+.chap.on .n{background:var(--primary);border-color:var(--primary);color:var(--on-accent)}
+.chap .ct{flex:1;font-size:13px;color:var(--ink-soft);line-height:1.45}
+.chap .ct b{display:block;color:var(--ink);font-size:13.4px;margin-bottom:1px}
+.jump{display:inline-flex;align-items:center;gap:5px;font-weight:600;font-size:12.3px;color:var(--primary);border:0;background:transparent;padding:0}
+
+/* encabezado (2x) */
+.screen{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:22px 24px;min-height:250px;position:relative}
+.crumb{font-size:12px;color:var(--muted)}.crumb b{color:var(--ink);font-weight:600}
+.th{display:flex;flex-wrap:wrap;align-items:center;gap:10px;row-gap:12px;margin-top:2px}.th>span{white-space:nowrap}
+.th h2{margin:0;font:700 24px/1.15 var(--fd);letter-spacing:-.02em}
+.th .act{margin-left:auto;display:flex;gap:8px;align-items:center}
+.btn{white-space:nowrap;height:36px;padding:0 14px;border-radius:9px;border:0;background:var(--primary);color:var(--on-accent);font:700 13px/1 var(--fd);display:flex;align-items:center;gap:6px}
+.btn-g{height:36px;padding:0 12px;border-radius:9px;border:1px solid var(--line-2);background:var(--white);font:600 13px/1 var(--ft);display:flex;align-items:center;gap:7px;color:var(--ink)}
+.empty{margin-top:20px;background:var(--white);border:1px solid var(--line);border-radius:12px;padding:30px 20px;text-align:center}
+.empty b{font:700 15px/1.2 var(--fd);display:block}
+.empty p{margin:6px auto 0;font-size:12.8px;color:var(--ink-soft);max-width:36ch}
+.reveal{display:inline-flex;align-items:center;border:0;background:transparent;padding:0;gap:0}
+.reveal .lab{max-width:0;overflow:hidden;white-space:nowrap;font:600 12.5px/1 var(--ft);color:var(--ink);transition:max-width .25s ease,margin .25s ease}
+.reveal:hover .lab,.reveal:focus-visible .lab{max-width:160px;margin-left:8px}
+.ring{position:relative;width:30px;height:30px;display:grid;place-items:center}
+.ring svg.r{position:absolute;inset:0;transform:rotate(-90deg)}
+.ring circle{fill:none;stroke-width:2.2}
+.inline-t{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:6px 12px 6px 6px;border-radius:999px;background:var(--paper);border:0;font:600 12.8px/1 var(--ft);color:var(--ink)}
+.inline-t:hover{background:#ECE7DB}
+.helpbtn{width:36px;height:36px;border-radius:9px;border:1px solid var(--line-2);background:var(--white);display:grid;place-items:center;position:relative;color:var(--ink)}
+.helpbtn .dot{position:absolute;top:-4px;right:-4px}
+.pop{position:absolute;right:24px;top:98px;width:300px;background:var(--white);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 14px 34px rgba(20,48,46,.16);padding:10px;z-index:3;display:none}
+.pop.show{display:block}
+.pop .pi{display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;font-size:13px;font-weight:600}
+.pop .pi:hover{background:var(--paper)}
+.pop .pi span.s{font-weight:500;color:var(--muted);font-size:12px;margin-left:auto}
+.pop hr{border:0;border-top:1px solid var(--line);margin:6px 0}
+
+.tipw{position:relative;display:inline-flex;align-items:center}
+.tip{position:absolute;z-index:4;top:calc(100% + 10px);left:-14px;width:310px;background:var(--white);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 14px 34px rgba(20,48,46,.16);padding:13px;opacity:0;visibility:hidden;transform:translateY(-4px);transition:opacity .15s,transform .15s,visibility .15s;text-align:left;font-family:var(--ft);font-weight:400;letter-spacing:0}
+.tip::before{content:"";position:absolute;top:-6px;left:22px;width:10px;height:10px;background:var(--white);border-left:1px solid var(--line-2);border-top:1px solid var(--line-2);transform:rotate(45deg)}
+.tip.r{left:auto;right:-6px}.tip.r::before{left:auto;right:22px}
+.tip.c{left:50%;margin-left:-155px}.tip.c::before{left:150px}
+.screen{overflow:visible}.opt{position:relative}
+.tipw:hover .tip,.tipw:focus-within .tip,.tipw.pin .tip{opacity:1;visibility:visible;transform:none}
+.tip .tt{font:700 14px/1.3 var(--fd);color:var(--ink)}
+.tip .tx{font-size:12.8px;color:var(--ink-soft);line-height:1.5;margin-top:3px;text-wrap:pretty}
+.tip .vid{margin-top:10px}
+.tip .tf{display:flex;align-items:center;gap:8px;margin-top:9px;font-size:12px;color:var(--muted)}
+.tip .tf a{margin-left:auto;font-weight:600}
+.tip hr{border:0;border-top:1px solid var(--line);margin:10px -13px}
+.tip .trow{display:flex;align-items:center;gap:10px;color:var(--ink);font-weight:600;font-size:13px}
+.tip .trow .thumb{width:96px}
+.info{width:22px;height:22px;border-radius:50%;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;padding:0}
+.info:hover{color:var(--ink);background:var(--white)}
+.dotted{border:0;background:transparent;padding:0;font:700 24px/1.15 var(--fd);letter-spacing:-.02em;color:var(--ink);text-decoration:underline dotted var(--faint);text-underline-offset:6px;text-decoration-thickness:2px;cursor:help}
+.screen.tall{min-height:440px}
+.isc{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px;min-height:290px}
+.isc .th h2{font-size:22px}
+.trg{border:0;background:transparent;padding:0;display:grid;place-items:center;color:var(--muted);position:relative}
+.trg:hover{color:var(--ink)}
+.i1{width:22px;height:22px}
+.i2{width:24px;height:24px;border-radius:50%;background:var(--mint,#E6EFEC);color:var(--primary)}.i2:hover{background:#D9E7E2;color:var(--primary)}
+.i3{width:22px;height:22px}
+.i4{align-self:flex-start;width:16px;height:16px;margin-left:-6px;margin-top:-2px}
+.i5{width:24px;height:24px;border-radius:50%;color:var(--primary)}.i5::after{content:"";position:absolute;inset:1px;border-radius:50%;border:2px solid var(--primary);animation:halo 2.4s ease-out infinite}
+.i6{display:flex;gap:5px;height:24px;padding:0 8px 0 5px;border-radius:999px;background:var(--white);border:1px solid var(--line);color:var(--ink-soft);font-family:var(--fm);font-size:11px}.i6:hover{background:var(--surface)}
+.i7{width:22px;height:22px}.i7 .pb{position:absolute;right:-3px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--primary);display:grid;place-items:center;border:1.5px solid var(--paper)}.i7 .pb svg{width:5px;height:5px;fill:var(--on-accent);margin-left:1px}
+.i8{font:500 12.5px/1 var(--ft);color:var(--muted);text-decoration:underline dotted var(--faint);text-underline-offset:4px;display:inline;padding:4px 0}
+.psc{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px 20px;min-height:300px}.psc .th h2{font-size:22px}.psc .th{flex-wrap:nowrap}.i8w{white-space:nowrap}
+.qx{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:4px 6px;margin-left:-2px;border-radius:8px;color:var(--muted);font:500 12.8px/1 var(--ft);white-space:nowrap}
+.qx:hover,.tipw.pin .qx{color:var(--ink)}
+.qx .lt{text-decoration:underline dotted var(--faint);text-underline-offset:4px}
+.qx.pill{background:var(--white);border:1px solid var(--line);border-radius:999px;padding:5px 11px 5px 7px;color:var(--ink-soft)}
+.qx.pill:hover{background:var(--surface)}
+.qx.rev .lt{max-width:0;overflow:hidden;opacity:0;transition:max-width .25s ease,opacity .2s}
+.qx.rev:hover .lt,.qx.rev:focus-visible .lt,.tipw.pin .qx.rev .lt{max-width:180px;opacity:1}
+.qx.soft .qi{width:22px;height:22px;border-radius:50%;background:#E6EFEC;color:var(--primary);display:grid;place-items:center}
+.qx.soft .qi svg{width:14px;height:14px}
+.pl{display:inline-flex;align-items:center;gap:6px;border:0;white-space:nowrap;font:600 12.5px/1 var(--ft);cursor:pointer}
+.pl svg{width:15px;height:15px}
+.pl1{height:28px;padding:0 12px 0 8px;border-radius:999px;background:#E9E4D8;color:var(--ink)}.pl1:hover{background:#E1DBCD}
+.pl2{height:28px;padding:0 12px 0 4px;border-radius:999px;background:#E6EFEC;color:var(--primary)}.pl2:hover{background:#DAE8E3}
+.pl2 .qi{width:20px;height:20px;border-radius:50%;background:var(--primary);color:var(--on-accent);display:grid;place-items:center}.pl2 .qi svg{width:12px;height:12px}
+.pl3{height:30px;padding:0 13px 0 5px;border-radius:999px;background:var(--white);color:var(--ink);box-shadow:0 1px 2px rgba(20,48,46,.08),0 2px 8px rgba(20,48,46,.06)}.pl3:hover{box-shadow:0 2px 4px rgba(20,48,46,.1),0 4px 14px rgba(20,48,46,.08)}
+.pl3 .qi{width:20px;height:20px;border-radius:50%;background:var(--paper);display:grid;place-items:center;color:var(--ink-soft)}.pl3 .qi svg{width:12px;height:12px}
+.pl4{height:24px;padding:0 9px 0 6px;border-radius:7px;background:transparent;color:var(--ink-soft);font-weight:500;font-size:12px}.pl4:hover,.tipw.pin .pl4{background:#E9E4D8;color:var(--ink)}
+.pl5{height:28px;padding:0 12px;border-radius:999px;background:var(--ink);color:var(--on-accent)}.pl5:hover{background:#2A4A47}
+.pl6{height:26px;padding:0 10px 0 7px;border-radius:999px;background:transparent;color:var(--ink-soft);border:1px dashed var(--line-2)}.pl6:hover{border-style:solid;background:var(--white)}
+/* manual */
+.manual{background:var(--white);border:1px solid var(--line);border-radius:14px;display:grid;grid-template-columns:240px minmax(0,1fr) 220px;min-height:720px;overflow:hidden}
+@media (max-width:980px){.manual{grid-template-columns:minmax(0,1fr)}.manual .toc,.manual .aside{display:none}}
+.toc{background:var(--surface);border-right:1px solid var(--line);padding:22px 16px;font-size:13px}
+.toc .mt{font:700 15px/1.2 var(--fd);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.toc .tg{font:800 10.5px/1 var(--fd);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:18px 0 6px}
+.toc a{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:7px;color:var(--ink-soft)}
+.toc a:hover{background:var(--paper);color:var(--ink)}
+.toc a.on{background:#E6EFEC;color:var(--ink);font-weight:600}
+.toc a .disk{margin-left:auto}
+.art{padding:30px 40px 50px;max-width:720px}
+.art .crumb{margin-bottom:6px}
+.art h2{margin:0;font:700 28px/1.15 var(--fd);letter-spacing:-.02em}
+.art .intro{color:var(--ink-soft);font-size:14.5px;margin:10px 0 20px;text-wrap:pretty}
+.art h4{font:700 16px/1.2 var(--fd);margin:28px 0 10px}
+.steps{list-style:none;margin:0;padding:0;counter-reset:s}
+.steps li{counter-increment:s;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;padding:12px 0;border-bottom:1px solid var(--line);align-items:start;font-size:14px;color:var(--ink-soft)}
+.steps li::before{content:counter(s);width:24px;height:24px;border-radius:50%;background:var(--paper);font:700 12px/24px var(--fd);text-align:center;color:var(--ink)}
+.steps li b{color:var(--ink)}
+.ts-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line-2);background:var(--white);border-radius:999px;padding:3px 9px 3px 4px;font-family:var(--fm);font-size:11px;color:var(--ink)}
+.ts-chip:hover{border-color:var(--primary)}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.2px;color:var(--ink-soft);margin-top:18px}
+.note b{color:var(--ink)}
+.aside{border-left:1px solid var(--line);padding:30px 18px;font-size:12.8px}
+.aside .tg{font:800 10.5px/1 var(--fd);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+.aside a{display:block;padding:5px 0;color:var(--ink-soft)}
+.aside a:hover{color:var(--ink)}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="play" viewBox="0 0 10 10"><path d="M1.5 1 9 5 1.5 9z"></path></symbol></defs></svg>
+<div class="wrap" style="max-width:1280px;padding-top:26px"><a href="Ayuda - Final.html" style="font-size:13px;font-weight:600;display:inline-block;margin-bottom:12px">‹ Volver a Spira</a>
+<div class="manual">
+<nav class="toc"><div class="mt"><svg class="ico" viewBox="0 0 24 24"><path d="M4 4h7a3 3 0 0 1 3 3v13a2 2 0 0 0-2-2H4zM20 4h-6a3 3 0 0 0-3 3"></path></svg>Manual de Spira</div>
+<div class="search" style="height:34px;font-size:12.5px">Buscar en el manual</div>
+<div class="tg">Primeros pasos</div><a href="#">Buscar<span class="disk sm seen"><svg><use href="#play"></use></svg></span></a><a href="#">Notificaciones</a><a href="#">Dar feedback</a>
+<div class="tg">Coordinación</div><a href="#">Marcar llegada<span class="disk sm new"><svg><use href="#play"></use></svg></span></a><a href="#">Agendar y reprogramar<span class="disk sm new"><svg><use href="#play"></use></svg></span></a><a href="#">Para ver médico</a><a href="#">Pendientes<span class="disk sm new"><svg><use href="#play"></use></svg></span></a>
+<div class="tg">Farmacia</div><a href="#">Recepción<span class="disk sm seen"><svg><use href="#play"></use></svg></span></a><a href="#">Stock</a><a class="on" href="#">Dispensar<span class="disk sm new"><svg><use href="#play"></use></svg></span></a><a href="#">Reposición<span class="disk sm seen"><svg><use href="#play"></use></svg></span></a></nav>
+<article class="art"><div class="crumb">Manual › Farmacia › <b>Dispensar</b></div>
+<h2>Dispensar una medicación</h2>
+<p class="intro">Del pedido de Coordinación a la entrega al paciente. Spira asigna el lote que vence primero y descuenta el stock al marcarla lista para retirar.</p>
+<div class="vid" style="--d:41s"><span class="lbl">captura · Dispensaciones</span><div class="center"><button class="disk lg new" data-play><svg><use href="#play"></use></svg></button></div><span class="cd">0:41</span><div class="bar"><i></i></div></div>
+<h4>Paso a paso</h4>
+<ol class="steps">
+<li><span>El pedido llega desde la visita, cuando Coordinación toca <b>«Solicitar dispensación»</b>, o lo cargás vos con <b>«Nueva dispensación»</b>. Aparece en Solicitadas.</span><button class="ts-chip"><span class="disk sm"><svg><use href="#play"></use></svg></span>0:00</button></li>
+<li><span>Tocá <b>«Preparar»</b> y escaneá cada unidad con el lector.</span><button class="ts-chip"><span class="disk sm"><svg><use href="#play"></use></svg></span>0:12</button></li>
+<li><span>Con todo escaneado, tocá <b>«Marcar lista para retirar»</b>: se genera el comprobante, Spira asigna el lote y descuenta el stock.</span><button class="ts-chip"><span class="disk sm"><svg><use href="#play"></use></svg></span>0:26</button></li>
+<li><span>Cuando el paciente la retira, tocá <b>«Marcar como entregado»</b>.</span><button class="ts-chip"><span class="disk sm"><svg><use href="#play"></use></svg></span>0:36</button></li>
+</ol>
+<div class="note"><b>El lote no se escanea.</b> El escaneo valida el producto; el lote lo asigna Spira.</div>
+<h4>Preguntas frecuentes</h4>
+<div class="q"><button class="qb" data-acc><span class="qt">¿Qué pasa si el código escaneado no corresponde?</span><svg class="ico chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"></path></svg></button><div class="qa"><p>El escaneo no se cuenta y Spira te dice por qué: el código no está en el catálogo, el medicamento no está en el pedido, ya tiene todas sus unidades escaneadas o fue sustituido.</p></div></div>
+</article>
+<aside class="aside"><div class="tg">En este artículo</div><a href="#">Video</a><a href="#">Paso a paso</a><a href="#">Preguntas frecuentes</a><div class="tg" style="margin-top:22px">Relacionado</div><a href="#">Recepción</a><a href="#">Stock y lotes</a></aside>
+</div>
+</div>
+<script>
+document.addEventListener('click',e=>{const acc=e.target.closest('[data-acc]');if(acc){acc.parentElement.classList.toggle('open');return}const pl=e.target.closest('[data-play]');if(pl){pl.closest('.vid').classList.add('playing');pl.classList.remove('new');return}const vv=e.target.closest('.vid.playing');if(vv)vv.classList.remove('playing')});
+</script>
+</body>
+</html>
