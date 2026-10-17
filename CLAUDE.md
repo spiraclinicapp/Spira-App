@@ -57,6 +57,10 @@ npm run build       # typecheck + tests + build de producción  ← el GATE de v
    corrió uno literal) y prever datos legacy (constraints nuevas sobre filas viejas). Apenas
    confirme "aplicada", registralo en el índice de `supabase/README.md` (**Aplicada en prod
    (fecha)**) — CI lo vigila con `scripts/check-migraciones.mjs`.
+   **Pasale la copia SIN COMENTARIOS** (`node scripts/sql-sin-comentarios.mjs <migración> <salida>`): la 0160 y la 0161
+   se pegaron «toda comentada», el editor dio OK sin ejecutar nada y la sonda se leyó como verde. Sin un solo `--`
+   no puede quedar comentada, y el primer renglón ya es SQL. Y **«aplicada» lo confirma la API sin sesión**, no sólo
+   la palabra del editor: una RPC que existe responde `42501`, una que no, `PGRST202`; una columna que no existe, `42703`.
 3. **Migraciones = inmutables y numeradas.** La fuente de verdad del schema son los archivos
    `supabase/migrations/NNNN_*.sql`, aplicados en orden. **Nunca edites una migración ya
    aplicada ni renumeres**: todo cambio de base es un archivo **nuevo** con el siguiente
