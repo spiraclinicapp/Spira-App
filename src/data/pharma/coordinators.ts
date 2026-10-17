@@ -1,16 +1,21 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { useSupabaseQuery } from '../../lib/useSupabaseQuery'
 
-/** Coordinador (usuario de Track) asignado a un protocolo. Para el selector de la recepción IP. */
+/**
+ * Coordinador (usuario de Track) asignado a un protocolo. Para el selector de la recepción IP, el
+ * coordinador de la visita y «¿Quién la atendió?» de «Vino otro día».
+ */
 export interface CoordinatorRow {
   id: string
   full_name: string
 }
 
 /**
- * Coordinadores asignados a un protocolo, vía RPC `list_protocol_coordinators` (0038).
+ * Coordinadores activos de un protocolo, vía RPC `list_protocol_coordinators` (0038).
  * Es un RPC SECURITY DEFINER porque la RLS de `users`/`protocol_coordinators` aísla a Track y no
- * deja a pharma leerlas directo (0006); el RPC devuelve solo id + nombre a pharma/gerencia.
+ * deja leerlas directo (0006). Devuelve sólo id + nombre a quien ve el estudio: gerencia, quien lo
+ * coordina, Coordinación de líder para arriba y Farmacia dentro de su alcance (0162; hasta ahí,
+ * sólo Farmacia y gerencia, y Coordinación recibía 42501).
  */
 export function useProtocolCoordinators(protocolId: string | null) {
   return useSupabaseQuery<CoordinatorRow[]>((c) => {

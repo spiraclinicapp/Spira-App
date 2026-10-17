@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { PatientLink, PatientLinkArrow } from '../../components/PatientLink'
@@ -384,6 +384,11 @@ function PhysicianEditor({ visit, inicial, onCerrar, onSaved }: {
  * `set_visit_coordinator` (0065), con el picker acotado a los coordinadores del protocolo
  * (`useProtocolCoordinators`, RPC — sin él la RLS de `users` no deja leer a las demás).
  * En solo lectura, chip inerte; nada si la visita no tiene coordinador.
+ *
+ * Si la lista no se puede leer, el chip se apaga y el motivo sube al banner del modal, como los errores
+ * del RPC que asigna (en el chip no cabe). Antes se tragaba el error: la lista llegaba vacía y el menú
+ * ofrecía sólo «— Sin asignar —», como si el estudio no tuviera coordinadores. Así se vio en prod el
+ * 2026-10-16, con el 42501 que la 0162 le sacó a Coordinación. Mismo criterio que «Vino otro día».
  */
 function CoordinatorChip({ visit, readOnly, onSaved, onError }: {
   visit: DayVisitRow; readOnly: boolean; onSaved: () => void; onError: (msg: string) => void
@@ -391,6 +396,10 @@ function CoordinatorChip({ visit, readOnly, onSaved, onError }: {
   const bloqueado = readOnly || !puedeEditarCoordinador(visit)
   const coords = useProtocolCoordinators(bloqueado ? null : visit.protocol_id)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (coords.error) onError('No se pudo leer quién coordina el estudio. Cerrá y probá de nuevo.')
+  }, [coords.error, onError])
 
   if (bloqueado) {
     if (!visit.coordinator_name) return null
@@ -424,7 +433,7 @@ function CoordinatorChip({ visit, readOnly, onSaved, onError }: {
          que ya tiene uno. Ver `opcionesDeCoordinador`. */
       options={opcionesDeCoordinador(visit, coords.data ?? [])}
       placeholder={coords.loading ? 'Cargando…' : 'Asignar coordinador'}
-      disabled={busy || coords.loading}
+      disabled={busy || coords.loading || !!coords.error}
       entity="coordinador"
     />
   )
