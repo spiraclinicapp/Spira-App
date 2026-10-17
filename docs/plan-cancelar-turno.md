@@ -736,7 +736,7 @@ es la que ya estaba escrita en el plan. Se dejan las alternativas a la vista par
     - al final se borró la definición (con su visita y su descarte): TEST-QA quedó con V1/V2 y sus dos visitas de siempre.
   - La 0161 se aplicó al segundo intento: la primera copia pegada quedó toda comentada (como la 0160). Se aplicó una sin
     comentarios, hecha con `scripts/sql-sin-comentarios.mjs`, y la API sin sesión lo confirmó (#498).
-- [ ] **T7 (P3)** — docs — `TODOS.md`: `sync_protocol_schedule` deshace los «Reprogramar»; Reposición con el turno
+- [x] **T7 (P3)** — docs — `TODOS.md`: `sync_protocol_schedule` deshace los «Reprogramar»; Reposición con el turno
   cancelado (D16)
 
 ## GSTACK REVIEW REPORT

@@ -5,6 +5,43 @@ tome dentro de unos meses entienda el porqué y por dónde empezar.
 
 ---
 
+## Coordinación · Cronograma: sincronizar deshace los «Reprogramar»
+
+- **Qué:** que `sync_protocol_schedule` (última definición en la 0161) no le devuelva la fecha teórica a
+  una visita automática sin atender que alguien reprogramó a propósito, o que al menos el preview lo diga.
+- **Por qué:** su MOVER compara `estimated_date` con `randomización + offset` y pisa toda diferencia. Un
+  turno acordado con el paciente vuelve a la fecha del cronograma sin aviso: el preview lo cuenta como
+  «visitas a mover (no atendidas)» (`ScheduleSyncModal.tsx:75`), igual que un desfase de verdad. La 0161 ya
+  excluye los turnos cancelados; los reprogramados siguen expuestos.
+- **Pros:** sincronizar el cronograma deja de borrar decisiones de agenda.
+- **Contras:** hay que distinguir «la fecha se movió a mano» de «la definición cambió»: falta un dato (un
+  sello de reprogramación, o comparar contra la fecha teórica anterior).
+- **Contexto:** encontrado en el `/plan-eng-review` de «Cancelar turno» (`docs/plan-cancelar-turno.md`, NOT
+  in scope), 2026-10-15.
+- **Empezar por:** contar cuántas visitas automáticas sin atender difieren hoy de su fecha teórica, por
+  estudio (el preview del sync, en modo sólo lectura, lo da).
+- **Depende de / bloqueado por:** nada. Es una re-declaración de `sync_protocol_schedule`: probarla en el
+  banco (`scripts/banco-rls/`), como en la 0161.
+- **Prioridad:** P2.
+
+---
+
+## Farmacia · Reposición: la última visita con el turno cancelado
+
+- **Qué:** que `reposicion_del_periodo` (0151, CTE `cronograma`) calcule el fin del tratamiento con
+  `max(coalesce(estimated_date, citacion_cancelada))` en vez de `max(estimated_date)`.
+- **Por qué:** desde la 0161 una visita con el turno cancelado no tiene `estimated_date`. Si es la ÚLTIMA
+  del tratamiento y no se reprograma antes del cálculo, el paciente figura como «terminó su cronograma»: se
+  lista (D23 de Reposición) pero no suma stock.
+- **Pros:** Reposición no sub-compra por un turno que sólo está esperando fecha.
+- **Contras:** re-declarar una función de ~160 renglones de Farmacia por un caso raro y transitorio.
+- **Contexto:** D16 de `docs/plan-cancelar-turno.md`, 2026-10-15.
+- **Empezar por:** el CTE `cronograma` de `0151_corregir_entrega_farmacia.sql:557-566`.
+- **Depende de / bloqueado por:** nada; conviene juntarlo con el próximo cambio de Reposición.
+- **Prioridad:** P3.
+
+---
+
 ## Coordinación · Reportes: acotar la consulta al trabajo abierto
 
 - **Qué:** que `useReportesPendientes` (`data/reportStatus.ts`) traiga en dos pasos: los reportes NO
