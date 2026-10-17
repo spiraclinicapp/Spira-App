@@ -34,23 +34,23 @@
     ]
   },
   "atender-visita": {
-    "version": "1b16d50a",
-    "duracionMs": 32720,
+    "version": "bbb59a8c",
+    "duracionMs": 33600,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "Visitas de hoy"
       },
       {
-        "inicioMs": 7335,
+        "inicioMs": 7198,
         "titulo": "La llegada"
       },
       {
-        "inicioMs": 12905,
+        "inicioMs": 12768,
         "titulo": "La atención"
       },
       {
-        "inicioMs": 19264,
+        "inicioMs": 19546,
         "titulo": "El fin"
       }
     ],
@@ -63,43 +63,43 @@
     ]
   },
   "conocer-coordinacion": {
-    "version": "f249d4a1",
-    "duracionMs": 58600,
+    "version": "1af4c306",
+    "duracionMs": 60880,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "El módulo"
       },
       {
-        "inicioMs": 4308,
+        "inicioMs": 4183,
         "titulo": "Resumen"
       },
       {
-        "inicioMs": 13457,
+        "inicioMs": 13665,
         "titulo": "Estudios y pacientes"
       },
       {
-        "inicioMs": 18376,
+        "inicioMs": 19049,
         "titulo": "Visitas"
       },
       {
-        "inicioMs": 25761,
+        "inicioMs": 26807,
         "titulo": "Para ver médico"
       },
       {
-        "inicioMs": 30441,
+        "inicioMs": 31396,
         "titulo": "Pendientes"
       },
       {
-        "inicioMs": 38605,
+        "inicioMs": 40115,
         "titulo": "Reportes"
       },
       {
-        "inicioMs": 43433,
+        "inicioMs": 44851,
         "titulo": "Tareas"
       },
       {
-        "inicioMs": 47376,
+        "inicioMs": 48789,
         "titulo": "Estadísticas"
       }
     ],
@@ -117,7 +117,7 @@
     ]
   },
   "conocer-farmacia": {
-    "version": "c18270ba",
+    "version": "07a1b4ec",
     "duracionMs": 65560,
     "capitulos": [
       {
@@ -125,27 +125,27 @@
         "titulo": "El módulo"
       },
       {
-        "inicioMs": 6635,
+        "inicioMs": 6873,
         "titulo": "Estudios y pacientes"
       },
       {
-        "inicioMs": 14210,
+        "inicioMs": 14479,
         "titulo": "Recepción"
       },
       {
-        "inicioMs": 19552,
+        "inicioMs": 20143,
         "titulo": "Stock"
       },
       {
-        "inicioMs": 32817,
+        "inicioMs": 33747,
         "titulo": "Dispensaciones"
       },
       {
-        "inicioMs": 45577,
+        "inicioMs": 46090,
         "titulo": "Reposición"
       },
       {
-        "inicioMs": 52161,
+        "inicioMs": 52726,
         "titulo": "Estadísticas"
       }
     ],
@@ -163,27 +163,27 @@
     ]
   },
   "dispensar": {
-    "version": "b159b215",
-    "duracionMs": 43080,
+    "version": "2c95fd34",
+    "duracionMs": 42880,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "Entrar a Dispensaciones"
       },
       {
-        "inicioMs": 10817,
+        "inicioMs": 10948,
         "titulo": "Preparar el pedido"
       },
       {
-        "inicioMs": 15821,
+        "inicioMs": 15812,
         "titulo": "Escanear"
       },
       {
-        "inicioMs": 24458,
+        "inicioMs": 24158,
         "titulo": "Marcar lista"
       },
       {
-        "inicioMs": 34062,
+        "inicioMs": 33672,
         "titulo": "Entregar"
       }
     ],
@@ -199,23 +199,23 @@
     ]
   },
   "nueva-dispensacion": {
-    "version": "8a3a3a35",
-    "duracionMs": 51040,
+    "version": "0431c2a0",
+    "duracionMs": 53720,
     "capitulos": [
       {
         "inicioMs": 0,
         "titulo": "Nueva dispensación"
       },
       {
-        "inicioMs": 17741,
+        "inicioMs": 18009,
         "titulo": "Paciente y visita"
       },
       {
-        "inicioMs": 29117,
+        "inicioMs": 30165,
         "titulo": "Medicación"
       },
       {
-        "inicioMs": 36587,
+        "inicioMs": 37962,
         "titulo": "Crear y preparar"
       }
     ],

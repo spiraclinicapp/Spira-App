@@ -58,7 +58,8 @@ export default guion('atender-visita', {
     },
     {
       dice: 'Listo: la visita queda en Finalizadas. Si pulsás la fila, se abre el detalle de la visita.',
-      hace: async (e) => { await e.moverA(fila(e).getByText('Rosa Medina').first()) },
+      /* El estado y no el nombre: el nombre es un link con pista («Abrir la ficha de…»), y quedaba en el póster. */
+      hace: async (e) => { await e.moverA(fila(e).getByText('Realizada', { exact: true }).first()) },
       /* El póster va acá, con la visita finalizada. En el primer paso (navega) a 0,8 s la página está en blanco, y en
          los otros el clic llega antes de los 0,8 s: el póster salía con «Guardando…» (toma del 2026-10-15). */
       poster: true,

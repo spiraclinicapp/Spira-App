@@ -38,7 +38,9 @@ export default guion('dispensar', {
     },
     {
       dice: 'Cada tarjeta muestra el paciente, el medicamento y cuántas unidades pidieron.',
-      hace: async (e) => { await e.moverA(e.page.getByText('Héctor Quiroga').first()) },
+      /* El medicamento y no el nombre: el nombre es un link con pista («Abrir la ficha de…»), y quedaba abierta en
+         el póster, que desde la #496 se toma al final del paso. */
+      hace: async (e) => { await e.moverA(e.page.getByText(/Bufomix/).first()) },
       poster: true,
     },
     {
