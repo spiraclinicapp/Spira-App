@@ -38,35 +38,10 @@ export function preguntasVisibles(preguntas: readonly Pregunta[], isAllowed: Per
   return preguntas.filter((p) => p.modulo === 'general' || isAllowed(p.modulo))
 }
 
-/**
- * Las del alcance elegido, en el orden en que se muestran: primero las del módulo, después las generales.
- * `moduloActual` null (desde Inicio, o con «Ver todos los módulos») = todas, agrupadas por módulo y las
- * generales al final. El orden dentro de cada grupo es el del archivo de preguntas: lo decide quien escribe.
- */
-export function preguntasDelAlcance(visibles: readonly Pregunta[], moduloActual: ModuloAyuda | null): Pregunta[] {
-  const orden = (m: ModuloAyuda) => (m === 'general' ? 2 : m === moduloActual ? 0 : 1)
-  const elegibles = moduloActual ? visibles.filter((p) => p.modulo === moduloActual || p.modulo === 'general') : [...visibles]
-  return elegibles
-    .map((p, i) => ({ p, i }))
-    .sort((a, b) => orden(a.p.modulo) - orden(b.p.modulo) || a.i - b.i)
-    .map(({ p }) => p)
-}
-
-/** ¿El módulo del shell tiene preguntas propias? Si no (Inicio, o un módulo sin ninguna), el panel arranca en «todos». */
-export function moduloDeAyuda(moduleKey: string): ModuloAyuda | null {
-  return moduleKey === 'track' || moduleKey === 'pharma' ? moduleKey : null
-}
-
-/** Coincide si el término (sin tildes ni mayúsculas) aparece en la pregunta, la respuesta o sus palabras. */
+/** Coincide si el término (sin tildes ni mayúsculas) aparece en la pregunta, la respuesta o sus palabras. El
+ *  orden de los resultados y el alcance (todo lo visible, nunca sólo la pestaña) los pone `panel.ts`. */
 export function coincide(p: Pregunta, termino: string): boolean {
   const t = normalizar(termino.trim())
   if (!t) return true
   return [p.pregunta, p.respuesta, ...(p.palabras ?? [])].some((campo) => normalizar(campo).includes(t))
-}
-
-/** Con texto: busca en TODAS las visibles (no en el alcance), manteniendo el orden del alcance de arriba. */
-export function buscarPreguntas(visibles: readonly Pregunta[], termino: string, moduloActual: ModuloAyuda | null): Pregunta[] {
-  return preguntasDelAlcance(visibles, null)
-    .filter((p) => coincide(p, termino))
-    .sort((a, b) => Number(b.modulo === moduloActual) - Number(a.modulo === moduloActual))
 }

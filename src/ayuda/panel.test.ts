@@ -8,6 +8,7 @@ import type { MetaTutorial, Publicado } from './catalogo'
 import { DESTACADOS } from './destacados'
 import { buscarEnAyuda, destacadosVisibles, pestañasVisibles, preguntasDeLaPestaña, tutorialInicial } from './panel'
 import { PREGUNTAS } from './preguntas'
+import { preguntasVisibles } from './reglas'
 import type { Pregunta } from './reglas'
 import { TUTORIALES } from './tutoriales'
 
@@ -73,6 +74,15 @@ describe('preguntasDeLaPestaña', () => {
 describe('buscarEnAyuda', () => {
   const tutoriales = [pub('dispensar', 'pharma', undefined, { capitulos: [{ inicioMs: 0, titulo: 'Escanear', texto: 'Pasá cada unidad por el lector.' }] })]
   const preguntas = [preg('lote', 'pharma'), preg('campana', 'general')]
+  it('EL VACÍO FALSO: busca en todos los módulos visibles, no en la pestaña donde estás', () => {
+    // Parado en Coordinación, buscando «recepción» (que es de Farmacia): no hay pestaña que la esconda.
+    const visibles = preguntasVisibles([preg('t1', 'track'), { ...preg('f1', 'pharma'), pregunta: '¿Cómo registro una recepción?' }], () => true)
+    expect(buscarEnAyuda(visibles, [], 'recepcion').map((r) => (r.tipo === 'pregunta' ? r.pregunta.id : ''))).toEqual(['f1'])
+  })
+  it('nunca encuentra lo que el usuario no puede ver (recibe lo ya filtrado)', () => {
+    const visibles = preguntasVisibles([{ ...preg('t1', 'track'), pregunta: '¿Cómo marco la llegada?' }], (m) => m === 'pharma')
+    expect(buscarEnAyuda(visibles, [], 'llegada')).toEqual([])
+  })
   it('sin texto, nada (el panel muestra las pestañas)', () => {
     expect(buscarEnAyuda(preguntas, tutoriales, '   ')).toEqual([])
   })

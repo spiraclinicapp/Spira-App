@@ -185,9 +185,8 @@ export function AppShell() {
      desplegable de pantalla de inicio: escrita en dos lados, se desincroniza sin que nada deje de
      compilar, y de los dos lados gobierna un acceso. */
   const isAllowed = (key: string) => moduloHabilitado(key, userModules, MODULES)
-  /* La Ayuda —panel, reproductor de tutoriales, «vistos»— vive acá y sus capas se montan como HERMANAS del
-     feedback, nunca adentro de otra capa: el fondo del Drawer lleva `backdropFilter` y encerraría a cualquier
-     hijo fijo (docs/plan-tutoriales.md, «Capas y foco»). Ver `ayuda/AyudaProvider.tsx`. */
+  /* La Ayuda —el panel, con los videos adentro, y los «vistos»— vive acá y su capa se monta como HERMANA del
+     feedback, nunca adentro de otra capa (docs/plan-tutoriales.md, «Capas y foco»). Ver `ayuda/AyudaProvider.tsx`. */
   const ayuda = useEstadoAyuda(isAllowed, import.meta.env.VITE_SUPABASE_URL, session?.user.id ?? null)
   /* `Pistas` vive afuera del shell (también cubre el login): la tarjeta del tutorial le llega por el puente. Al
      salir de la sesión se despublica, y todo `title` vuelve a ser pista de texto. */
@@ -488,9 +487,27 @@ export function AppShell() {
               </button>
             )
           })}
+          {/* «?» Ayuda, al pie del riel y arriba de la «i» (Ayuda v2, docs/handoff-ayuda-manual/, §2: abre en
+              Inicio). La fila «Ayuda» del menú de la cuenta se queda: sacar un camino que la gente ya aprendió
+              es una regresión gratis (docs/plan-ayuda-manual.md, A19). Los dos van en un bloque que se pega al
+              pie: el `marginTop: auto` del AboutMenu, adentro, ya no tiene espacio para repartir. */}
+          <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <button
+            type="button"
+            onClick={() => ayuda.api.abrirPanel()}
+            title="Ayuda"
+            aria-label="Ayuda"
+            style={{
+              width: 46, height: 46, borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: ayuda.panel ? accent + '16' : 'transparent', display: 'grid', placeItems: 'center',
+            }}
+          >
+            <Icon name="helpCircle" size={21} stroke={1.9} color={ayuda.panel ? accent : 'var(--spira-muted)'} />
+          </button>
           {/* «i» Acerca de Spira (versión + novedades + dar feedback). Reemplaza la
               tuerca: sus ítems (Preferencias, Roles y permisos, Ayuda) viven en el UserMenu. */}
           <AboutMenu accent={accent} onFeedback={() => setFeedbackOpen(true)} open={aboutOpen} onOpenChange={setAboutOpen} />
+          </div>
           </div>
         </aside>
 
@@ -697,14 +714,13 @@ export function AppShell() {
         />
       )}
 
-      {/* Panel de Ayuda y reproductor de tutoriales. ANTES del feedback en el DOM: comparten capa
+      {/* Panel de Ayuda. ANTES del feedback en el DOM: comparten capa
           (`--spira-z-drawer`) y el orden decide, así el feedback que abre su «Contanos» queda arriba y el panel
           espera debajo. */}
       <AyudaCapas
         estado={ayuda}
-        moduleKey={moduleKey}
+        vista={`${moduleKey}/${sub.key}`}
         isAllowed={isAllowed}
-        accent={accent}
         onContanos={(buscaba) => {
           setFeedbackMensaje(buscaba ? `Buscaba: ${buscaba}
 

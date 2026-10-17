@@ -179,6 +179,12 @@
   --spira-on-accent:  #F4F1EA;
   --spira-brand-mark: #0F5F57;
 
+  /* —— Ayuda v2 (docs/handoff-ayuda-manual/) ——
+     El fondo de lo ACTIVO (el capítulo que se está viendo, el artículo del manual) y el de los rótulos de
+     botón dentro de un texto. Son fondos y no bordes: el realce no es un borde verde (CLAUDE.md). */
+  --spira-ayuda-activo: #E6EFEC;
+  --spira-rotulo-fondo: #F1EDE3;
+
   /* —— Tipografía —— */
   --spira-font-display: 'Schibsted Grotesk', system-ui, sans-serif;
   --spira-font-text:    'Inter', system-ui, sans-serif;
@@ -249,6 +255,8 @@
   --spira-brand-mark: #9DE6D6; /* isotipo verde menta — sin cambios */
   --spira-avatar-ring: #34D399; /* emerald-400 — más claro para contraste en oscuro */
   --spira-acc-deep-track:  #9DE6D6;  /* menta: en oscuro hay que ACLARAR, no oscurecer */
+  --spira-ayuda-activo: rgba(157, 230, 214, 0.12); /* la menta de arriba, apenas: sobre casi negro el #E6EFEC encandila */
+  --spira-rotulo-fondo: #2A2A2A;
   --spira-acc-deep-warn: #E8CE8A;
   --spira-acc-deep-danger: #EDA093; /* salmón: aclarado, no oscurecido. 7,09:1 sobre el tinte rojo */
   --spira-acc-deep-good: #A9D9A6;   /* verde claro: aclarado, no oscurecido. 8,97:1 sobre el tinte verde */
@@ -2082,53 +2090,6 @@ input:-webkit-autofill:focus {
   .spira-pildora-tutorial[aria-expanded='true'] { transform: translateY(-1px); }
 }
 
-/* El reproductor: el video LIMITADO POR ALTO (entra entero en una tablet apaisada de 1024×768) y el ancho
-   sale del 16:9. Un solo quiebre: desde 1100 px los capítulos van a la derecha; por debajo, en una fila
-   horizontal con desplazamiento bajo el video (DD8c). */
-.spira-repro__cuerpo {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
-}
-.spira-repro__video {
-  position: relative;
-  aspect-ratio: 16 / 9;
-  width: min(100%, calc((100vh - 240px) * 16 / 9));
-  justify-self: center;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--spira-line);
-  background: var(--spira-paper);
-}
-.spira-repro__capitulos {
-  display: flex;
-  gap: 2px;
-  overflow-x: auto;
-}
-.spira-repro__rotulo { display: none; margin: 0 6px 8px; }
-.spira-repro__cap {
-  position: relative;
-  display: flex;
-  gap: 10px;
-  align-items: baseline;
-  white-space: nowrap;
-  border: none;
-  background: transparent;
-  padding: 8px;
-  border-radius: 9px;
-  font: inherit;
-  font-size: 13px;
-  color: var(--spira-ink);
-  text-align: left;
-  cursor: pointer;
-}
-.spira-repro__cap:hover:not(:disabled) { background: var(--spira-surface); }
-@media (min-width: 1100px) {
-  .spira-repro__cuerpo { grid-template-columns: minmax(0, 1fr) 240px; }
-  .spira-repro__capitulos { flex-direction: column; overflow-x: visible; }
-  .spira-repro__rotulo { display: block; }
-  .spira-repro__cap { white-space: normal; width: 100%; }
-}
 /* Subtítulos sobre tinta translúcida, igual en los dos temas. Es una mejora: Safari la ignora en parte. */
 video[data-tutorial-video]::cue {
   background: rgba(20, 48, 46, 0.82);

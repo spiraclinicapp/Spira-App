@@ -4,7 +4,7 @@
  * esconder una respuesta que existe (ver el comentario de cabecera de `reglas.ts`).
  */
 import { describe, expect, it } from 'vitest'
-import { buscarPreguntas, coincide, moduloDeAyuda, preguntasDelAlcance, preguntasVisibles } from './reglas'
+import { coincide, preguntasVisibles } from './reglas'
 import type { Pregunta } from './reglas'
 
 const P = (id: string, modulo: Pregunta['modulo'], pregunta: string, respuesta = 'respuesta', palabras?: string[]): Pregunta =>
@@ -30,25 +30,6 @@ describe('preguntasVisibles', () => {
   })
 })
 
-describe('preguntasDelAlcance', () => {
-  it('en un módulo: primero las suyas, después las generales; nunca las de otro módulo', () => {
-    expect(ids(preguntasDelAlcance(BANCO, 'pharma'))).toEqual(['f1', 'f2', 'g1', 'g2'])
-    expect(ids(preguntasDelAlcance(BANCO, 'track'))).toEqual(['t1', 't2', 'g1', 'g2'])
-  })
-  it('en «todos»: las de módulo en el orden del archivo y las generales al final', () => {
-    expect(ids(preguntasDelAlcance(BANCO, null))).toEqual(['t1', 'f1', 't2', 'f2', 'g1', 'g2'])
-  })
-})
-
-describe('moduloDeAyuda', () => {
-  it('sólo Coordinación y Farmacia tienen preguntas propias; el resto arranca en «todos»', () => {
-    expect(moduloDeAyuda('track')).toBe('track')
-    expect(moduloDeAyuda('pharma')).toBe('pharma')
-    expect(moduloDeAyuda('inicio')).toBeNull()
-    expect(moduloDeAyuda('lab')).toBeNull()
-  })
-})
-
 describe('coincide', () => {
   it('sin tildes ni mayúsculas, en la pregunta, la respuesta o las palabras', () => {
     expect(coincide(BANCO[2], 'recepcion')).toBe(true)
@@ -60,23 +41,5 @@ describe('coincide', () => {
   it('término vacío o de espacios: no filtra nada', () => {
     expect(coincide(BANCO[0], '')).toBe(true)
     expect(coincide(BANCO[0], '   ')).toBe(true)
-  })
-})
-
-describe('buscarPreguntas', () => {
-  it('EL VACÍO FALSO: buscar algo de otro módulo encuentra la respuesta aunque el alcance sea el propio', () => {
-    // Parado en Coordinación, buscando «recepción» (que es de Farmacia).
-    expect(ids(buscarPreguntas(BANCO, 'recepcion', 'track'))).toEqual(['f1'])
-  })
-  it('nunca encuentra lo que el usuario no puede ver', () => {
-    const visibles = preguntasVisibles(BANCO, soloFarmacia)
-    expect(ids(buscarPreguntas(visibles, 'llegada', 'pharma'))).toEqual([])
-  })
-  it('las del módulo donde estás van primero; el resto conserva su orden', () => {
-    const r = buscarPreguntas(BANCO, '¿cómo', 'pharma')
-    expect(ids(r)).toEqual(['f1', 'f2', 't1', 'g1', 'g2'])
-  })
-  it('sin coincidencias → lista vacía (el panel muestra el estado vacío con «Contanos»)', () => {
-    expect(buscarPreguntas(BANCO, 'xyz', null)).toEqual([])
   })
 })

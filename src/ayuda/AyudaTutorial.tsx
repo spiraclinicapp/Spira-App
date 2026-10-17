@@ -81,7 +81,7 @@ export function AyudaTutorial({ tutorial, acento }: { tutorial: Publicado; acent
             onVisto={() => ayuda.marcarVisto(tutorial.id)}
             playRef={playRef}
             onVerEnGrande={(segundo) => {
-              // El foco va a la píldora ANTES de abrir el reproductor: así el `Modal` la toma como su disparador y
+              // El foco va a la píldora ANTES de abrir la Ayuda: así el `Drawer` la toma como su disparador y
               // se lo devuelve al cerrar (el botón «Ver en grande» desaparece con el globo).
               triggerRef.current?.focus()
               setAbierto(false)
