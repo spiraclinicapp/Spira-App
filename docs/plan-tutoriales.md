@@ -738,6 +738,10 @@ Carriles: **T0** primero (30 min). Después **A**, **B** y **C** en paralelo (no
   - **Segunda tanda (2026-10-15), Coordinación:** «Conocé Coordinación» (`conocer-coordinacion`, en `track/resumen`) y «Atender una visita» (`atender-visita`, en `track/visitas`: llegada → inicio → fin desde la fila; la pregunta `marcar-llegada` lo enlaza).
     - Al navegar por la barra, el mouse sale en horizontal: en diagonal rozaba otro botón, su pista se abría con el mouse ya afuera y quedaba pegada (con el mouse quieto, nadie la cierra).
     - El póster de «Atender una visita» va en el último paso: en los demás, el clic llega antes de los 0,8 s y salía «Guardando…».
+  - **Tercera tanda (2026-10-15):** «Agendar y reprogramar una visita» (`agendar-reprogramar`, sin `vista`: desde la ficha, que es sub-pantalla; la pregunta `agendar-reprogramar` lo enlaza y se corrigió: desde la ficha de un randomizado no se ofrece «una visita del estudio»).
+    - **La fábrica dejó de sacar una foto por paso al grabar** (sólo si el paso falla): cada `page.screenshot` pausa la grabación del video y el atraso se acumulaba, hasta ~2 s entre la voz y la acción en el décimo paso. Los videos publicados antes de este cambio tienen ese desfase: regrabarlos es gratis (la voz está en caché), pero cada uno pide su `tutoriales:publicar`.
+    - **El póster se toma al final del paso** marcado, no a 0,8 s del inicio: sin página en blanco, sin «Guardando…», sin modal a medio abrir ni pistas cerrándose.
+    - Visto una vez y no reproducido en cinco pasadas más: después de «Guardar fecha», la ficha siguió mostrando la fecha vieja (el guardado sí ocurrió). Queda para investigar.
   - Próximos: los elige el Director. Hoy no hay ninguno de Recepción.
 
 ## Approved Mockups

@@ -17,9 +17,10 @@ export interface Paso {
   hace?: (e: Escena) => Promise<void>
   /** Si está, este paso abre un capítulo del reproductor con ese título. */
   capitulo?: string
-  /** El cuadro de este paso es el póster del video (si ninguno lo marca, se usa el del primer paso). Se toma a
-   *  0,8 s del inicio del paso: NO lo marques en uno que navega (`irA`), porque a esa altura la página todavía
-   *  está en blanco. Pasó con «Conocé Farmacia» (2026-10-14): llegó a prod con un póster blanco. */
+  /** El cuadro de este paso es el póster del video (si ninguno lo marca, se usa el del primer paso). Se toma
+   *  al FINAL del paso (`grabar.ts`), con la acción hecha y la pantalla quieta. Hasta el 2026-10-15 se tomaba a
+   *  0,8 s del inicio, y eso dio tres pósters malos: en blanco (un paso que navega, «Conocé Farmacia»), con
+   *  «Guardando…» y con un modal a medio abrir (un clic que llega antes de los 0,8 s). */
   poster?: boolean
 }
 
