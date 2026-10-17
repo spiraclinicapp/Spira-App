@@ -194,8 +194,9 @@ function caraDeLaFila(
   if (noVino) {
     return {
       rotulo: 'Reprogramar',
-      habilitada: puedeReprogramar(visit, permisos.recepcion),
-      pista: 'Sólo Recepción reprograma',
+      // El permiso de mover fechas (`coordina`): el de la base, y el del ítem del menú (0161).
+      habilitada: puedeReprogramar(visit, permisos.coordina),
+      pista: 'Lo reprograma quien coordina el estudio',
       onClick: () => onAccion(visit, 'reprogramar'),
     }
   }

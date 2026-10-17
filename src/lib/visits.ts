@@ -183,6 +183,19 @@ export interface VisitaEnLinea {
   estimated_date: string | null
   real_date: string | null
   sort_order: number | null
+  /** El turno cancelado (0161). Opcionales: los tests y Farmacia arman filas sin ellos. */
+  turno_cancelado_at?: string | null
+  citacion_cancelada?: string | null
+}
+
+/**
+ * ¿La visita tiene el turno CANCELADO (0161, «Cancelar turno»)? Sigue en el cronograma, sin fecha
+ * (`estimated_date` NULL) y por reprogramar; la base garantiza que no tiene marcas
+ * (`patient_visits_turno_cancelado`). Para la base es `por_reprogramar`, igual que un «No vino»: lo que
+ * cambia es la CAUSA, y por eso los rótulos preguntan acá antes de decir «No vino».
+ */
+export function turnoCancelado(v: { turno_cancelado_at?: string | null }): boolean {
+  return !!v.turno_cancelado_at
 }
 
 /** Agrupa visitas por patient_id (para alimentar el tracker de cada fila en listas). */
@@ -196,9 +209,23 @@ export function groupVisitsByPatient<T extends { patient_id: string }>(rows: T[]
   return map
 }
 
-/** Fecha "efectiva" para ordenar/ubicar: estimada (programadas) o real (sueltas). */
-function effectiveDate(v: VisitaEnLinea): string {
+/**
+ * Fecha "efectiva" para UBICAR una visita en el tiempo: estimada (programadas) o real (sueltas); `''` si
+ * no tiene ninguna. La usan `todaySplit` y el tramo del flujo (`PdVisitFlow`): una visita sin fecha —un
+ * turno cancelado (0161)— no tiene lugar en el tiempo y no puede ser «Hoy», «Anterior» ni «Próxima».
+ */
+export function effectiveDate(v: VisitaEnLinea): string {
   return v.estimated_date ?? v.real_date ?? ''
+}
+
+/**
+ * La fecha para ORDENAR el cronograma: la efectiva, y para un turno cancelado la que tenía
+ * (`citacion_cancelada`, 0161). Separada de `effectiveDate` a propósito (plan `docs/plan-cancelar-turno.md`,
+ * D5): sin la citación vieja la cancelada se iba al primer renglón, arriba del screening; con ella adentro de
+ * `effectiveDate`, salía como «Hoy · V5» o «Anterior: V5», algo que nunca pasó.
+ */
+export function fechaParaOrdenar(v: VisitaEnLinea): string {
+  return v.estimated_date ?? v.citacion_cancelada ?? v.real_date ?? ''
 }
 
 /** Solo las visitas del cronograma (kind 'programada'); las sueltas son historial. */
@@ -218,11 +245,11 @@ function tieRank(v: VisitaEnLinea): number {
   return Number.MAX_SAFE_INTEGER
 }
 
-/** Ordena cronológicamente por fecha efectiva; desempata con tieRank (randomización antes de V1). */
+/** Ordena cronológicamente (`fechaParaOrdenar`); desempata con tieRank (randomización antes de V1). */
 export function orderVisits<T extends VisitaEnLinea>(rows: T[]): T[] {
   return [...rows].sort((a, b) => {
-    const da = effectiveDate(a)
-    const db = effectiveDate(b)
+    const da = fechaParaOrdenar(a)
+    const db = fechaParaOrdenar(b)
     if (da !== db) return da.localeCompare(db)
     return tieRank(a) - tieRank(b)
   })
@@ -232,6 +259,7 @@ export function orderVisits<T extends VisitaEnLinea>(rows: T[]): T[] {
  * Posición de "hoy" entre las visitas ordenadas por fecha efectiva: la última con fecha anterior a
  * hoy (`prev`), la primera con fecha posterior (`next`), y la que cae justo hoy (`todayVisit`, si hay).
  * Sirve para marcar "Hoy" en la línea de tiempo (con el tramo a medio llenar cuando cae entre dos).
+ * Usa `effectiveDate` y no `fechaParaOrdenar`: una visita sin fecha (un turno cancelado) se saltea.
  */
 export function todaySplit<T extends VisitaEnLinea>(rows: T[], today: string): {
   prev: T | null
@@ -383,6 +411,9 @@ export function marcaTardia(marca: string | null | undefined, realDate: string |
  */
 export function ventanaAbierta(v: TrackVisitRow, today: string): boolean {
   if (v.real_date !== null) return false
+  // Un turno cancelado (0161) primero necesita fecha: el verde dice «se puede hacer hoy», y siempre va
+  // respaldado por la palabra «En ventana», que la cancelada no lleva (`visitStateLabel` dice «Sin turno»).
+  if (turnoCancelado(v)) return false
   if (!v.window_start || !v.window_end) return false
   return today >= v.window_start && today <= v.window_end
 }
@@ -464,7 +495,7 @@ export function dotVisual(v: TrackVisitRow): DotVisual {
 export type VisitStateLabel =
   | 'Agendada' | 'En ventana' | 'Por llegar' | 'Concurrió al centro'
   | 'Inicio de atención' | 'Fin de atención'
-  | 'Visita realizada' | 'Completa' | 'Sin cerrar'
+  | 'Visita realizada' | 'Completa' | 'Sin cerrar' | 'Sin turno'
 
 /**
  * Etiqueta del estado de la visita según el recorrido operativo (lo que pasa en "Visitas del
@@ -476,6 +507,9 @@ export type VisitStateLabel =
  * mira ninguno de los dos ejes sino el CALENDARIO (`ventanaAbierta`).
  */
 export function visitStateLabel(v: TrackVisitRow, today: string): VisitStateLabel {
+  // Un turno cancelado (0161) no tiene fecha ni marcas: sin esto caía al final y decía «Agendada» o «En
+  // ventana», las dos falsas. Va primero porque no hay etapa ni fecha que mirar.
+  if (turnoCancelado(v)) return 'Sin turno'
   // El recorrido operativo describe EL DÍA de la visita: fuera de ese día, envejece mal. Una visita
   // pasada que quedó a mitad de camino —se atendió y nunca se marcó el cierre, que con el flujo
   // viejo era lo habitual porque cerrar pedía dos marcas más— se rotularía "Inicio de atención",

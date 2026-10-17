@@ -694,24 +694,49 @@ es la que ya estaba escrita en el plan. Se dejan las alternativas a la vista par
     --control` sin diferencias de permisos (2028 comparaciones, control 12/12; 10 fotos distintas con las mismas
     filas: las columnas nuevas de `patient_visits` y `v_track_visits`); 14 marcadores de dollar-quote, todos en par;
     `check-migraciones` al día. `sembrar.mjs` no inventa turnos cancelados (el CHECK los rechazaría).
-- [ ] **T2 (P1, humano ~1,5 h / CC ~15 min)** — reglas — `turnoCancelado`, `fechaParaOrdenar`, `effectiveDate`
+- [x] **T2 (P1, humano ~1,5 h / CC ~15 min)** — reglas — `turnoCancelado`, `fechaParaOrdenar`, `effectiveDate`
   exportada (`PdVisitFlow` deja su `eff()`), `todaySplit`, `currentVisit`, `ventanaAbierta`, `visitStateLabel`
   (`lib/visits.ts`); `COLUMNAS_FILA_PACIENTE` y `PdPatientRow`; `esNoVino` (`calendario.ts`) + tests
-- [ ] **T3 (P1, humano ~3 h / CC ~20 min)** — acción — `itemCancelarTurno` y el estado cancelado en
+- [x] **T3 (P1, humano ~3 h / CC ~20 min)** — acción — `itemCancelarTurno` y el estado cancelado en
   `accionesDeVisita.ts` (+ cabecera) + test; `noConfirmar` en `BotonEtapa`; `cancelarTurno` y el helper del 23514 en
   `data/dayVisits.ts`; el `case` en `useAccionesDeVisita`; `calendarX` en `Icon.tsx`; permiso `coordina` para
   Reprogramar (fila y menú)
-- [ ] **T4 (P1, humano ~2 h / CC ~15 min)** — salidas — `RescheduleModal` propone la fecha vieja y no guarda sin
+- [x] **T4 (P1, humano ~2 h / CC ~15 min)** — salidas — `RescheduleModal` propone la fecha vieja y no guarda sin
   fecha (puras + test); `visitasParaTraer` / `marcaDePendiente` y `opciones.ts` (la ficha) + tests; el encabezado
   («Sin turno»); la cara «Reprogramar» y el listón del modal
-- [ ] **T5 (P1, humano ~3 h / CC ~25 min)** — rótulos — `motivoDeAlertaDeVisita` (arregla el bug de Pendientes),
+- [x] **T5 (P1, humano ~3 h / CC ~25 min)** — rótulos — `motivoDeAlertaDeVisita` (arregla el bug de Pendientes),
   `refDate` y la ventana en el renglón + «Agendar» en «por reprogramar»; `anclaDeLaVisita` / `isVisitAlertDismissed`;
   tarjetas por protocolo; campana (rótulo, fecha, clave, `propia`); ficha (alertas y «Próxima visita»); glosario;
   cronograma («Sin turno», sin verde); `enPeriodo` y `VisitaEstadistica`; «Nueva dispensación» y «Pedir medicación»
   sin turno + tests
-- [ ] **T6 (P1)** — verificación — `npm run build` verde + preview (banco sin sesión) + QA con sesión sobre TEST-001
+- *T2–T5 hechas el 2026-10-16 (commit «feat(visitas): Cancelar turno…»): `npm run build` verde, 2202 tests (siete archivos de test nuevos o ampliados). Lo que quedó distinto del plan: el permiso de la cara «Reprogramar» de la fila también pasó a `coordina`; «Pedir medicación» con el turno cancelado se resuelve dejando el panel de dispensación en solo lectura.*
+- [x] **T6 (P1)** — verificación — `npm run build` verde + preview (banco sin sesión) + QA con sesión sobre TEST-001
   (protocolo TEST-QA), con la 0161 aplicada y su sonda en verde. Lo creado en el QA, borrado al final.
-- [ ] **T7 (P3)** — docs — `TODOS.md`: `sync_protocol_schedule` deshace los «Reprogramar»; Reposición con el turno
+  - **QA con sesión contra prod (2026-10-16, el Director logueado como gerencia, preview del worktree en el 5252).** Sobre una
+    definición de prueba «QA · Cancelar turno» (Screening, libre) agregada a TEST-QA y agendada para TEST-001 hoy:
+    - el menú de la fila, en el orden del plan, con «Cancelar turno» y Reprogramar habilitados para gerencia (TEST-QA no tiene
+      coordinadores) y Eliminar apagado con «Del cronograma: cancelá el turno»; la confirmación «¿Cancelar el turno de hoy?»
+      con «Mantener turno» / «Cancelar turno», y «Mantener turno» vuelve al ítem sin hacer nada;
+    - al confirmar, la fila se fue del turnero y el aviso dijo «Turno cancelado: la visita quedó en Pendientes.»; en la base,
+      sin fecha, `por_reprogramar`, la citación guardada y el sello con quien canceló;
+    - Pendientes: «Turno cancelado el 16 Oct 2026 · sin fecha nueva · QA · Cancelar turno», con «Agendar» y el tacho, y no
+      en «Se pasó la fecha»; la campana, en HOY, «QA · Cancelar turno — Turno cancelado el 16 Oct 2026»;
+    - el modal: listón «Sin turno · cancelado el 16 oct», cara «Reprogramar», atención médica apagada, «Fecha programada: Sin
+      turno», y el menú del estado cancelado sin «Vino otro día» ni «No vino»;
+    - la ficha: «Próxima visita · Sin turno», y en el cronograma la fila en su lugar con «—» y la pastilla «Sin turno»
+      terracota, sin el verde; el «Agendar visita» de la ficha ofrece «Una visita pendiente del estudio» (con la cancelada,
+      «Turno cancelado · sin turno») y no la definición como nueva;
+    - las dos salidas: traerla desde la ficha y la cara «Reprogramar» (que propuso la fecha vieja); en las dos el trigger
+      limpió el sello;
+    - el descarte: archivada, desaparece de Pendientes (el ancla es el instante de la cancelación); reprogramada y
+      cancelada de nuevo, vuelve a aparecer;
+    - Estadísticas la cuenta en el período de su citación vieja; `visitas_dispensables` la devuelve como programada sin
+      fecha (la que «Nueva dispensación» saca); `mark_arrived` y `mark_no_show` rebotan con «La visita tiene el turno
+      cancelado: primero reprogramala.» sin tocarla;
+    - al final se borró la definición (con su visita y su descarte): TEST-QA quedó con V1/V2 y sus dos visitas de siempre.
+  - La 0161 se aplicó al segundo intento: la primera copia pegada quedó toda comentada (como la 0160). Se aplicó una sin
+    comentarios, hecha con `scripts/sql-sin-comentarios.mjs`, y la API sin sesión lo confirmó (#498).
+- [x] **T7 (P3)** — docs — `TODOS.md`: `sync_protocol_schedule` deshace los «Reprogramar»; Reposición con el turno
   cancelado (D16)
 
 ## GSTACK REVIEW REPORT

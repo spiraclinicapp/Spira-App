@@ -194,7 +194,8 @@ export function BotonEtapa({
           <span>{detalle}</span>
         </p>
         <div className="spira-split-fila">
-          <button type="button" className="spira-split-btn spira-no-press" onClick={() => setConfirmando(null)}>Cancelar</button>
+          {/* «Mantener turno» y no «Cancelar» en «Cancelar turno» (0161): los dos botones dirían lo mismo. */}
+          <button type="button" className="spira-split-btn spira-no-press" onClick={() => setConfirmando(null)}>{a.confirmar?.noConfirmar ?? 'Cancelar'}</button>
           <button
             type="button"
             data-confirma-accion

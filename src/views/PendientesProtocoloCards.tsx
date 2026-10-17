@@ -132,7 +132,9 @@ export function PendientesProtocoloCards({ visitas, reportes, ips, retomar, fech
                   {p.porEstado.map((x) => (
                     <span key={x.estado} style={parte}>
                       <span style={{ ...punto, background: VISIT_STATES[x.estado].color }} />
-                      {VISIT_STATES[x.estado].short} <b style={cifra}>{x.n}</b>
+                      {/* «Por reprogramar» con su nombre largo: el corto es «No vino», y desde la 0161 la
+                          clase junta también los turnos cancelados. */}
+                      {x.estado === 'por_reprogramar' ? VISIT_STATES[x.estado].label : VISIT_STATES[x.estado].short} <b style={cifra}>{x.n}</b>
                     </span>
                   ))}
                   {p.fechaPasada > 0 && (

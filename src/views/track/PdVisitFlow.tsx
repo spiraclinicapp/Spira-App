@@ -1,7 +1,7 @@
 import { Fragment } from 'react'
 import type { CSSProperties } from 'react'
 import type { TrackVisitRow } from '../../data/visits'
-import { flowWindow, todaySplit, ubicacionDeHoy, visitShortLabel, studyTime, ventanaAbierta } from '../../lib/visits'
+import { effectiveDate, flowWindow, todaySplit, ubicacionDeHoy, visitShortLabel, studyTime, ventanaAbierta } from '../../lib/visits'
 import { formatDayMonth, todayISO } from '../../lib/dates'
 import { VisitDot } from './VisitDot'
 
@@ -33,10 +33,11 @@ export function PdVisitFlow({ visits, currentId, accent }: { visits: TrackVisitR
 
   /* Estado del tramo según HOY: lleno si la visita derecha ya pasó; "half" (a medio llenar, con punto
      marcador) si hoy cae entre ambas sin visita justo hoy; vacío si es futuro. */
-  const eff = (v: TrackVisitRow) => v.estimated_date ?? v.real_date ?? ''
+  /* La fecha para UBICAR en el tiempo (`effectiveDate`, la misma de `todaySplit`): un turno cancelado
+     (0161) no tiene, y no puede pintar el tramo como hecho. Era una copia de la fórmula; ahora es la misma. */
   const segState = (left: TrackVisitRow, right: TrackVisitRow): 'full' | 'half' | 'empty' => {
-    const ld = eff(left)
-    const rd = eff(right)
+    const ld = effectiveDate(left)
+    const rd = effectiveDate(right)
     if (rd && rd <= today) return 'full'
     if (!todayVisit && ld && ld < today && rd && rd > today) return 'half'
     return 'empty'

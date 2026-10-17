@@ -249,7 +249,19 @@ export function useDoctorQueue(date: string): QueryResult<DayVisitRow[]> {
 /** Traduce errores de RPC a mensajes claros (espeja eventError de visitEvents.ts). */
 function rpcError(code?: string, raw?: string): string {
   if (code === '42501') return 'No tenés permiso para esta acción.'
+  if (esCandadoDeTurnoCancelado(code, raw)) return TURNO_CANCELADO
   return raw || 'No se pudo completar la acción. Probá de nuevo.'
+}
+
+/**
+ * El candado de la 0161 (`patient_visits_turno_cancelado`): un turno cancelado no recibe marcas. Lo levanta
+ * la base cuando una pantalla vieja (o una pestaña abierta antes) quiere marcar la llegada, la falta o el
+ * inicio de una visita cancelada. El mensaje crudo es el técnico de Postgres, en inglés: se reconoce por el
+ * nombre del constraint (PostgREST no lo da aparte; mismo criterio que `markNoShow`) y se dice qué hacer.
+ */
+const TURNO_CANCELADO = 'La visita tiene el turno cancelado: primero reprogramala.'
+function esCandadoDeTurnoCancelado(code?: string, raw?: string): boolean {
+  return code === '23514' && !!raw && raw.includes('patient_visits_turno_cancelado')
 }
 
 /**
@@ -368,6 +380,7 @@ export async function markLeft(visitId: string): Promise<{ error: string | null 
 export async function markNoShow(visitId: string, value = true): Promise<{ error: string | null }> {
   const { error } = await supabase.rpc('mark_no_show', { p_visit_id: visitId, p_value: value })
   if (error) {
+    if (esCandadoDeTurnoCancelado(error.code, error.message)) return { error: TURNO_CANCELADO }
     if (error.code === '23514') {
       const generico = 'No se pudo marcar la falta: revisá el estado de la visita.'
       return { error: /violates check constraint|viola la restricci[oó]n/i.test(error.message) ? generico : (error.message || generico) }
@@ -387,6 +400,7 @@ function errorDeEtapa(code: string | undefined, raw: string, sinPermiso: string)
   if (code === 'PGRST202') return 'Esta acción todavía no está disponible en esta base. Falta aplicar una actualización.'
   if (code === '42501') return sinPermiso
   if (code === '23503') return 'Esa visita ya no existe. Actualizá la lista.'
+  if (esCandadoDeTurnoCancelado(code, raw)) return TURNO_CANCELADO
   if (code === '23514' && raw) return raw
   return 'No se pudo completar la acción. Probá de nuevo.'
 }
@@ -436,6 +450,22 @@ export async function registrarVisitaEnOtraFecha(
     p_visit_id: visitId, p_fecha: fecha, p_atendio: atendio,
   })
   if (error) return { error: errorDeEtapa(error.code, error.message, 'Cargar esta visita es de quien coordina el estudio.') }
+  return { error: null }
+}
+
+/**
+ * «Cancelar turno» (RPC `cancelar_turno_visita`, 0161; plan `docs/plan-cancelar-turno.md`): la visita sale
+ * del turnero sin salir del cronograma. Queda sin fecha (`estimated_date` NULL) y por reprogramar; la base
+ * guarda la fecha que tenía (`citacion_cancelada`) y sella quién y cuándo. Sale de ese estado dándole fecha
+ * por cualquier camino (Reprogramar, «Una visita pendiente del estudio», el encabezado): el trigger de la
+ * 0161 limpia el sello solo.
+ *
+ * Los 23514 de la RPC hablan en castellano y en términos del dominio («Tiene «no vino» marcado…», «Tiene un
+ * pedido de medicación sin atender…»): se muestran tal cual, como los de la 0155.
+ */
+export async function cancelarTurno(visitId: string): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('cancelar_turno_visita', { p_visit_id: visitId })
+  if (error) return { error: errorDeEtapa(error.code, error.message, 'Cancelar el turno es de quien coordina el estudio.') }
   return { error: null }
 }
 

@@ -89,6 +89,15 @@ export interface TrackVisitRow {
   retest_of_code?: string | null
   retest_of_name?: string | null
   retest_of_kind?: VisitKind | null
+  /**
+   * El turno cancelado (0161, `v_track_visits`, al final): cuándo, quién y la fecha que tenía. Con el
+   * sello la visita no tiene `estimated_date` y es `por_reprogramar`; ver `turnoCancelado` (lib/visits.ts).
+   * Lo limpia la base (trigger `trg_limpia_turno_cancelado`) cuando la visita vuelve a tener fecha.
+   * Opcionales por lo mismo que los `origin_*`.
+   */
+  turno_cancelado_at?: string | null
+  turno_cancelado_by?: string | null
+  citacion_cancelada?: string | null
 }
 
 /**
@@ -120,7 +129,8 @@ export function useUpcomingVisits() {
  * Visitas en alerta. **Tres clases desde la 0107**, no dos:
  *
  * · `ventana_vencida` — la visita no se atendió y su ventana ya cerró. Roja.
- * · `por_reprogramar` — el paciente no vino, se marcó la falta y todavía no tiene fecha nueva.
+ * · `por_reprogramar` — la visita no tiene fecha nueva: el paciente no vino y se marcó la falta, o se
+ *   canceló el turno (0161). La causa la dice `turnoCancelado` (lib/visits.ts); el estado es el mismo.
  * · `item_vencido` — un REPORTE del estudio fuera de plazo, sobre una visita ya atendida.
  *
  * Las dos primeras exigen `real_date is null` y la tercera lo contrario, así que nunca describen la
@@ -273,6 +283,8 @@ export const COLUMNAS_FILA_PACIENTE = [
   'estimated_date', 'real_date', 'sort_order',
   'origin_visit_id', 'origin_code', 'origin_name', 'origin_kind',
   'retest_of_visit_id', 'retest_of_code', 'retest_of_name', 'retest_of_kind',
+  // 0161: un turno cancelado se ordena por la fecha que tenía, y Anterior / Próxima no lo eligen.
+  'turno_cancelado_at', 'citacion_cancelada',
 ] as const satisfies readonly (keyof TrackVisitRow)[]
 
 /** Una visita tal como la trae «Todos los pacientes»: sin estado calculado. */
@@ -331,7 +343,10 @@ export function usePatientVisits(patientId: string | null, protocolId: string | 
  * Reagenda una visita: mueve `estimated_date` —la ventana (window_start/end) viene del esquema
  * del sponsor y queda fija a propósito, el estado calculado (`ventana_vencida`) sigue siendo
  * auditable aunque la visita se mueva— y limpia la marca de ausente (0067): darle fecha nueva es,
- * justamente, la salida del estado "Por reprogramar".
+ * justamente, la salida del estado "Por reprogramar". La otra causa de ese estado, el turno cancelado
+ * (0161), la limpia la base sola: el trigger `trg_limpia_turno_cancelado` vacía el sello cuando la
+ * visita vuelve a tener fecha. Por eso este parche no nombra esas columnas (un PATCH con columnas que la
+ * base no tiene rompería toda reprogramación si el front llegara antes que la migración).
  * La RLS limita el UPDATE a la coordinadora asignada (operator+) o gerencia; si
  * filtra en silencio (0 filas afectadas), se devuelve un error claro.
  */

@@ -10,6 +10,7 @@ import { usePorRetomar } from '../../../data/pendientes'
 import { useSchedulableDefinitions } from '../../../data/visitDefinitions'
 import { availableEventKinds } from '../../../data/visitEvents'
 import { formatAR, todayISO, yearsFromTodayISO } from '../../../lib/dates'
+import { turnoCancelado } from '../../../lib/visits'
 import { agruparPorRetomar, pacientesDelEstudio, visitasParaRetest, visitasParaTraer } from '../retomar'
 import { eleccionInicial, fechaEstimadaDelCuadro, opcionesDeAgendar, tieneCuadro } from './opciones'
 import type { PacienteFijo, Preseleccion } from './opciones'
@@ -145,14 +146,21 @@ function Cuerpo({ contexto, accent, onClose, onDone }: Comunes & { contexto: Con
   const retomar = agruparPorRetomar(retomarQ.data?.marcas ?? [], retomarQ.data?.visitas ?? [])
     .filter((g) => (paciente ? g.visita.enrollment_id === paciente.enrollmentId : g.visita.protocol_id === protocolId))
   const defs = scheds.data ?? []
-  /* «Una visita pendiente del estudio» con el paciente fijo sólo cuando se abrió para eso (el
-     «Agendar» de «Se pasó la fecha» en Pendientes). */
-  const ofreceTraer = preseleccion?.tipo === 'traer'
+  /* Los turnos cancelados del paciente (0161): visitas del cuadro que esperan fecha. */
+  const canceladas = visitas.filter(turnoCancelado)
+  /* «Una visita pendiente del estudio» con el paciente fijo cuando se abrió para eso (el «Agendar» de
+     «Se pasó la fecha» y de «Por reprogramar» en Pendientes) o cuando el paciente tiene un turno
+     cancelado: es la forma de darle fecha desde la ficha. */
+  const ofreceTraer = preseleccion?.tipo === 'traer' || canceladas.length > 0
+  /* Y la definición de una visita con el turno cancelado no se ofrece como NUEVA: la base rechaza agendar
+     otra de la misma etapa mientras haya una pendiente (`schedule_protocol_visit`, 0030), y lo que hay
+     que hacer es traer esa misma visita. */
+  const defsNuevas = canceladas.length ? defs.filter((d) => !canceladas.some((v) => v.visit_def_id === d.id)) : defs
 
   const opciones = paciente
     ? opcionesDeAgendar({
         modo: 'paciente',
-        definiciones: defs,
+        definiciones: defsNuevas,
         randomizationDate: paciente.randomizationDate,
         kindsSueltos: availableEventKinds(paciente.randomizationDate, visitas.map((v) => v.kind), tieneCuadro(defs)),
         continuar: retomar.length,

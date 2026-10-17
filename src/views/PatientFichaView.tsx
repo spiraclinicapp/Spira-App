@@ -14,7 +14,7 @@ import type { PatientRow } from '../data/patients'
 import { usePatientAlerts, usePatientVisits } from '../data/visits'
 import { useUrlEntity } from '../lib/useUrlState'
 import {
-  adherence, ageFromBirth, currentVisit, orderVisits, visitTitle, visitTitleConSemanaAparte, studyTime,
+  adherence, ageFromBirth, currentVisit, orderVisits, turnoCancelado, visitTitle, visitTitleConSemanaAparte, studyTime,
   FERTILITY_LABELS, SEX_LABELS,
 } from '../lib/visits'
 import { VISIT_STATES } from './visitStates'
@@ -246,7 +246,7 @@ export function PatientFichaView(props: PatientFichaViewProps) {
               const c = VISIT_STATES[a.computed_status].color
               /* El rótulo y el ícono de cada clase salen de `alertaDeLaFicha`: antes «No vino» caía en
                  «Reporte de procedimiento vencido», con el reloj. */
-              const { texto: motivo, icono } = alertaDeLaFicha(a.computed_status, visitTitle(a))
+              const { texto: motivo, icono } = alertaDeLaFicha(a.computed_status, visitTitle(a), turnoCancelado(a))
               return (
                 <div key={a.id} style={{ display: 'flex', gap: 11, padding: '12px 13px', borderRadius: 11, background: c + '0E', border: `1px solid ${c}30` }}>
                   <Icon name={icono} size={18} color={c} style={{ flex: '0 0 auto', marginTop: 1 }} />
@@ -431,7 +431,8 @@ export function PatientFichaView(props: PatientFichaViewProps) {
                     <div style={{ fontSize: 11.5, color: 'var(--spira-muted)' }}>{current && current.real_date === null ? 'Próxima visita' : 'Última visita'}</div>
                     <div style={{ display: 'flex', alignItems: 'baseline', gap: 9, marginTop: 3 }}>
                       <span style={{ fontFamily: 'var(--spira-font-display)', fontWeight: 700, fontSize: 25, letterSpacing: '-0.02em', color: current ? (VISIT_STATES[current.computed_status].color === '#7C8C87' ? 'var(--spira-ink)' : VISIT_STATES[current.computed_status].color) : 'var(--spira-ink)' }}>
-                        {current && current.estimated_date ? dayLabel(current.estimated_date) : '—'}
+                        {/* Un turno cancelado (0161) no tiene fecha: lo dice, en vez de un «—» mudo. */}
+                        {current && current.estimated_date ? dayLabel(current.estimated_date) : current && turnoCancelado(current) ? 'Sin turno' : '—'}
                       </span>
                       {ventanaTxt !== '—' && <span style={{ fontSize: 13, color: 'var(--spira-ink-soft)' }}>{ventanaTxt}</span>}
                     </div>

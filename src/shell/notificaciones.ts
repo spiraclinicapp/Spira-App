@@ -3,8 +3,8 @@ import type { ProcedureReportAlertRow } from '../data/reports'
 import type { IpDeliveryAlertRow } from '../data/visitIp'
 import type { TrackVisitRow, VisitStatus } from '../data/visits'
 import { motivoAlertaIp } from '../views/track/ipEstado'
-import { daysDiffISO, formatAR, formatDateAR } from '../lib/dates'
-import { visitTitle } from '../lib/visits'
+import { daysDiffISO, formatAR, formatDateAR, isoDayAR } from '../lib/dates'
+import { turnoCancelado, visitTitle } from '../lib/visits'
 import type { AlertSeverity } from '../views/alertSeverity'
 import {
   esSeveridad, GRAVEDAD, ICONO_REPORTE, SEVERIDAD_ICONO, SEVERIDAD_TINTA, severidadMaxima,
@@ -70,7 +70,8 @@ const DE_VISITA = Object.fromEntries(
          lee seguido de una fecha: "No vino el 02/07/2026" cuenta un hecho, "Por reprogramar el
          02/07/2026" nombra una tarea pendiente en una fecha que ya pasó, que es otra cosa. Los
          otros dos leen bien con el largo. Los dos textos salen de `VISIT_STATES`, así que ninguno
-         es copy suelto. */
+         es copy suelto. Desde la 0161 la clase tiene otra causa, el turno cancelado, que no es «No vino»:
+         ése lo resuelve `motivoDeAlerta` por fila, antes de llegar acá. */
       rotulo: s === 'por_reprogramar' ? VISIT_STATES[s].short : VISIT_STATES[s].label,
     },
   ]),
@@ -140,8 +141,33 @@ export function fechaDeVisita(a: TrackVisitRow): string | null {
  */
 export function momentoDeVisita(a: TrackVisitRow): Momento | null {
   const iso =
-    a.computed_status === 'por_reprogramar' ? a.estimated_date : a.window_end ?? a.estimated_date
+    a.computed_status === 'por_reprogramar' ? diaDelHechoPorReprogramar(a) : a.window_end ?? a.estimated_date
   return iso ? { iso, soloFecha: true } : null
+}
+
+/**
+ * La fecha del HECHO de una alerta «por reprogramar»: el día de la cita a la que no vino, o —con el turno
+ * cancelado (0161), que no tiene cita— el día en que se canceló. Las dos son «lo que pasó ese día».
+ */
+function diaDelHechoPorReprogramar(a: TrackVisitRow): string | null {
+  if (turnoCancelado(a) && a.turno_cancelado_at) return isoDayAR(a.turno_cancelado_at)
+  return a.estimated_date
+}
+
+/**
+ * La clave de novedad de una alerta de visita: la clase y la visita, y para un turno cancelado (0161) también
+ * el momento de la cancelación. Sin eso, si un «No vino» anterior de esa visita ya se había leído, la
+ * cancelación no encendía el punto (es la misma clase y la misma visita); y cada cancelación es un hecho nuevo.
+ */
+export function claveDeNovedadDeVisita(clase: string, a: Pick<TrackVisitRow, 'id' | 'computed_status' | 'turno_cancelado_at'>): string {
+  return a.computed_status === 'por_reprogramar' && a.turno_cancelado_at
+    ? `${clase}:${a.id}:${a.turno_cancelado_at}`
+    : `${clase}:${a.id}`
+}
+
+/** ¿La alerta la provocó quien mira? Hoy, sólo un turno que canceló esa misma persona (0161): no es novedad. */
+export function alertaPropia(a: Pick<TrackVisitRow, 'turno_cancelado_at' | 'turno_cancelado_by'>, uid: string | null): boolean {
+  return !!uid && !!a.turno_cancelado_at && a.turno_cancelado_by === uid
 }
 
 /**
@@ -165,9 +191,13 @@ export function motivoDeAlerta(a: TrackVisitRow): string {
   /* Un estado fuera de las tres NO toma prestado el rótulo del grado al que cayó: dice el suyo, que
      `VISIT_STATES` tiene para los ocho. Bajarlo de grado es para que la caja se pueda pintar;
      mentir sobre qué pasó, no. */
-  const que = esSeveridad(a.computed_status)
-    ? CLASES[a.computed_status].rotulo
-    : VISIT_STATES[a.computed_status].label
+  /* «Por reprogramar» tiene dos causas desde la 0161: el rótulo de la clase es «No vino», y un turno
+     cancelado no es una falta. */
+  const que = a.computed_status === 'por_reprogramar' && turnoCancelado(a)
+    ? 'Turno cancelado'
+    : esSeveridad(a.computed_status)
+      ? CLASES[a.computed_status].rotulo
+      : VISIT_STATES[a.computed_status].label
   const cuando = fechaDeVisita(a)
   return cuando ? `${visitTitle(a)} — ${que} el ${cuando}` : `${visitTitle(a)} — ${que}`
 }

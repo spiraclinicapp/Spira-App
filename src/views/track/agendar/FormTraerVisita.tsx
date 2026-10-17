@@ -65,10 +65,11 @@ export function FormTraerVisita({ candidatas, fecha, conPaciente, preseleccion, 
           value={visitaId}
           onChange={setVisitaId}
           options={candidatas.map((v) => {
-            // `visitasParaTraer` garantiza la fecha estimada; el `??` sólo calma al tipo.
-            const c = contadorDeDias(v.estimated_date ?? referencia, referencia)
+            /* `visitasParaTraer` garantiza la fecha estimada, salvo en un turno cancelado (0161), que no
+               tiene: ahí no hay días que contar, y la columna lo dice. */
+            const c = v.estimated_date ? contadorDeDias(v.estimated_date, referencia) : { texto: 'sin turno', atrasada: false }
             /* La segunda línea, sólo cuando hay algo que decir: «Ventana vencida» (traerla es una
-               desviación) o «No vino». Sin `desc`, la opción es el renglón de siempre. */
+               desviación), «Turno cancelado» o «No vino». Sin `desc`, la opción es el renglón de siempre. */
             const marca = marcaDePendiente(v)
             return {
               value: v.id, label: rotuloDeVisita(v, { conPaciente }), meta: c.texto, metaAlerta: c.atrasada,

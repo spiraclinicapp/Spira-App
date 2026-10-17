@@ -30,6 +30,9 @@ export interface VisitaEstadistica extends VisitaParaTipo {
   attended_at: string | null
   ready_at: string | null
   left_at: string | null
+  /** La fecha que tenía un turno cancelado (0161; `estadisticas_equipo_track` la devuelve al final). Opcional:
+   *  los tests arman filas sin ella, y un front nuevo con la base vieja no la recibe. */
+  citacion_cancelada?: string | null
 }
 
 export type { VisitKind }
@@ -44,7 +47,10 @@ const PENDIENTE_STATUSES: ReadonlySet<VisitStatus> = new Set(['ventana_vencida',
  * "Visitas" de `porEstudio`/`porVisita` tiene que significar lo mismo el día que se agregue.
  */
 function enPeriodo(v: VisitaEstadistica, rango: Rango): boolean {
-  const fecha = v.real_date ?? v.estimated_date
+  /* Un turno cancelado (0161) no tiene fecha: cuenta en el período de la que tenía, como pendiente o, si
+     la ventana vence, como perdida (plan `docs/plan-cancelar-turno.md`, D15). Espeja el filtro de
+     `estadisticas_equipo_track`. Sin esto, cancelar un turno escondía una visita perdida. */
+  const fecha = v.real_date ?? v.estimated_date ?? v.citacion_cancelada ?? null
   if (!fecha) return false
   return fecha >= rango.desde && fecha <= rango.hasta
 }

@@ -5,13 +5,19 @@ import { Modal } from '../../components/Modal'
 import { FormField } from '../../components/FormField'
 import { btnOutline, btnPrimary } from '../../components/buttons'
 import { DateField } from '../../components/DateField'
-import { formatAR, yearsFromTodayISO } from '../../lib/dates'
+import { formatAR, formatDayMonth, isoDayAR, todayISO, yearsFromTodayISO } from '../../lib/dates'
+import { turnoCancelado } from '../../lib/visits'
 import { rescheduleVisit } from '../../data/visits'
 import type { TrackVisitRow } from '../../data/visits'
+import { fechaPropuesta, fueraDeVentanaAlReprogramar } from './reprogramar'
 
 /**
  * Modal de reagendado compartido (Agenda y Ficha del paciente): fecha nueva +
  * confirmación extra si cae fuera de la ventana. Mueve solo estimated_date.
+ *
+ * También es la salida de un turno CANCELADO (0161): abre con la fecha que tenía si todavía no pasó
+ * (`fechaPropuesta`), y al guardar la base limpia el sello sola (trigger `trg_limpia_turno_cancelado`).
+ * Sin fecha no guarda: con `''` la ventana daba «fuera» y la base rebotaba con su error crudo.
  */
 export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
   visit: TrackVisitRow
@@ -19,15 +25,13 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
   onClose: () => void
   onDone: () => void
 }) {
-  const [date, setDate] = useState(visit.estimated_date ?? '')
+  const [date, setDate] = useState(() => fechaPropuesta(visit, todayISO()))
   const [confirming, setConfirming] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  /* Strings YYYY-MM-DD comparan bien lexicográficamente. Solo se reagendan programadas
-     (con ventana); el guard de null es defensivo. */
-  const outsideWindow = visit.window_start != null && visit.window_end != null
-    && (date < visit.window_start || date > visit.window_end)
+  /* Strings YYYY-MM-DD comparan bien lexicográficamente; sin fecha no hay «fuera de ventana». */
+  const outsideWindow = fueraDeVentanaAlReprogramar(date, visit.window_start, visit.window_end)
 
   const save = async () => {
     setBusy(true)
@@ -40,6 +44,7 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
 
   const submit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!date) { setError('Elegí la fecha nueva.'); return }
     if (date === visit.estimated_date) { onClose(); return }
     if (outsideWindow) { setConfirming(true); return }
     void save()
@@ -61,6 +66,12 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
           <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
             Ventana permitida: <span className="spira-mono">{visit.window_start ? formatAR(visit.window_start) : '—'} – {visit.window_end ? formatAR(visit.window_end) : '—'}</span>
           </div>
+          {turnoCancelado(visit) && visit.turno_cancelado_at && (
+            <div style={{ fontSize: 12.5, color: 'var(--spira-muted)' }}>
+              Turno cancelado el {formatDayMonth(isoDayAR(visit.turno_cancelado_at))}
+              {visit.citacion_cancelada ? <> · era el <span className="spira-mono">{formatAR(visit.citacion_cancelada)}</span></> : null}
+            </div>
+          )}
         </div>
 
         {confirming ? (
@@ -92,7 +103,7 @@ export function RescheduleModal({ visit, accentSolid, onClose, onDone }: {
             )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
               <button type="button" onClick={onClose} style={btnOutline}>Cancelar</button>
-              <button type="submit" disabled={busy} style={{ ...btnPrimary(accentSolid), opacity: busy ? 0.7 : 1, cursor: busy ? 'default' : 'pointer' }}>
+              <button type="submit" disabled={busy || !date} style={{ ...btnPrimary(accentSolid), opacity: busy || !date ? 0.7 : 1, cursor: busy || !date ? 'default' : 'pointer' }}>
                 {busy ? 'Guardando…' : 'Guardar fecha'}
               </button>
             </div>

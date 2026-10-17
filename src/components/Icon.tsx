@@ -60,6 +60,8 @@ const ICONS = {
   /* Selector de vista de Visitas (Semana / Mes, 2026-10-11): el calendario con columnas y con grilla. Del prototipo del handoff, mismo trazo. */
   calendarWeek: (<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M9 4v17" /><path d="M15 4v17" /></>),
   calendarMonth: (<><rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 10h18" /><path d="M3 15.5h18" /><path d="M9 10v11" /><path d="M15 10v11" /></>),
+  /* «Cancelar turno» del menú del botón de etapa (0161): el calendario con una cruz (lucide calendar-x). */
+  calendarX: (<><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4" /><path d="M8 2v4" /><path d="M3 10h18" /><path d="m14 14-4 4" /><path d="m10 14 4 4" /></>),
   list: (<><path d="M8 6h13" /><path d="M8 12h13" /><path d="M8 18h13" /><path d="M3 6h.01" /><path d="M3 12h.01" /><path d="M3 18h.01" /></>),
   filter: (<path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" />),
   helpCircle: (<><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></>),

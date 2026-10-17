@@ -2,7 +2,7 @@ import type { TrackVisitRow } from '../../data/visits'
 import type { MarcaRow } from '../../data/pendientes'
 import { inscripcionFueraDeCurso } from '../../data/deviationModel'
 import { daysDiffISO, formatAR, isoDayAR } from '../../lib/dates'
-import { visitTitle } from '../../lib/visits'
+import { turnoCancelado, visitTitle } from '../../lib/visits'
 
 /**
  * Reglas puras de «pendientes por retomar» y del retest con origen (v0145). Tienen test
@@ -79,14 +79,20 @@ export function visitasParaRetest(visitas: readonly TrackVisitRow[], hoy: string
  * afuera, y la desviación se documenta igual—; traer una falta limpia el «No vino», que es la salida
  * de «Por reprogramar» (`rescheduleVisit`).
  *
+ * Y los TURNOS CANCELADOS (0161), que no tienen fecha: son justamente las que esperan una. Hasta la 0161
+ * no existía una programada sin fecha y este filtro las descartaba. Se ordenan por la fecha que tenían
+ * (`citacion_cancelada`); traerla le pone fecha, y la base limpia el sello sola.
+ *
  * Afuera: las hechas, las del mismo día (ya están ahí), la que está en el centro ahora
  * (`en_atencion`) y las inscripciones cerradas.
  */
 export function visitasParaTraer(visitas: readonly TrackVisitRow[], dia: string): TrackVisitRow[] {
+  const fecha = (v: TrackVisitRow) => v.estimated_date ?? v.citacion_cancelada ?? ''
   return visitas
-    .filter((v) => v.real_date === null && v.estimated_date !== null && v.estimated_date !== dia
+    .filter((v) => v.real_date === null
+      && ((v.estimated_date !== null && v.estimated_date !== dia) || turnoCancelado(v))
       && v.computed_status !== 'en_atencion' && !inscripcionFueraDeCurso(v.enrollment_status))
-    .sort((a, b) => (a.estimated_date ?? '').localeCompare(b.estimated_date ?? '') || a.patient_name.localeCompare(b.patient_name, 'es'))
+    .sort((a, b) => fecha(a).localeCompare(fecha(b)) || a.patient_name.localeCompare(b.patient_name, 'es'))
 }
 
 /**
@@ -94,8 +100,9 @@ export function visitasParaTraer(visitas: readonly TrackVisitRow[], dia: string)
  * línea de la opción. `null` = nada que decir (futura, o atrasada con la ventana abierta: eso ya lo
  * dice el contador). La ventana vencida va primero porque es la que implica una desviación.
  */
-export function marcaDePendiente(v: Pick<TrackVisitRow, 'computed_status' | 'no_show_at'>): string | null {
+export function marcaDePendiente(v: Pick<TrackVisitRow, 'computed_status' | 'no_show_at' | 'turno_cancelado_at'>): string | null {
   if (v.computed_status === 'ventana_vencida') return 'Ventana vencida'
+  if (turnoCancelado(v)) return 'Turno cancelado'
   if (v.no_show_at !== null) return 'No vino'
   return null
 }
