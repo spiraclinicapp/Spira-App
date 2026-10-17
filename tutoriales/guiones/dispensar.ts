@@ -35,6 +35,7 @@ export default guion('dispensar', {
       dice: 'En Farmacia, entrá a Dispensaciones. Los pedidos que llegan desde Coordinación esperan en Solicitadas.',
       hace: async (e) => { await e.irA('/farmacia/dispensaciones') },
       capitulo: 'Entrar a Dispensaciones',
+      resumen: 'Los pedidos de Coordinación esperan en Solicitadas. Cada tarjeta muestra paciente, medicamento y unidades.',
     },
     {
       dice: 'Cada tarjeta muestra el paciente, el medicamento y cuántas unidades pidieron.',
@@ -50,11 +51,13 @@ export default guion('dispensar', {
         await e.page.getByLabel('Código de barras').waitFor({ timeout: 15_000 })
       },
       capitulo: 'Preparar el pedido',
+      resumen: 'Pulsá el botón «Preparar»: el pedido pasa a Preparando y se abre el detalle.',
     },
     {
       dice: 'Escaneá cada unidad con el lector. Spira controla que sea el medicamento del pedido.',
       hace: async (e) => { await escanear(e, '1/2') },
       capitulo: 'Escanear',
+      resumen: 'Escaneá cada unidad con el lector. El contador muestra cuántas llevás.',
     },
     {
       dice: 'Una pasada por unidad: el contador muestra cuántas llevás.',
@@ -67,6 +70,7 @@ export default guion('dispensar', {
         await cajon(e).getByRole('button', { name: 'Marcar como entregado' }).waitFor({ timeout: 15_000 })
       },
       capitulo: 'Marcar lista',
+      resumen: 'Pulsá el botón «Marcar lista para retirar»: Spira asigna el lote y descuenta el stock.',
     },
     {
       /* «Cuando se retira», sin decir quién: no siempre es el paciente. Y «pulsá el botón», no «tocá»: lo van a usar
@@ -74,6 +78,7 @@ export default guion('dispensar', {
       dice: 'Cuando se retira la medicación, pulsá el botón «Marcar como entregado».',
       hace: async (e) => { await e.clic(cajon(e).getByRole('button', { name: 'Marcar como entregado' })) },
       capitulo: 'Entregar',
+      resumen: 'Cuando se retira la medicación, pulsá el botón «Marcar como entregado».',
     },
     {
       dice: 'Listo: la dispensación queda en Entregadas, con su comprobante.',

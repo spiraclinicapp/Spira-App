@@ -33,11 +33,13 @@ export default guion('conocer-farmacia', {
         await e.moverA(pantalla(e, 'Recepción'))
       },
       capitulo: 'El módulo',
+      resumen: 'Las pantallas de Farmacia, en el orden en que la medicación recorre la farmacia.',
     },
     {
       dice: 'En Estudios y pacientes ves los estudios y quiénes participan en cada uno. Con el buscador encontrás a cualquiera por su nombre.',
       hace: async (e) => { await e.moverA(e.page.getByRole('textbox', { name: 'Buscar protocolos o pacientes' })) },
       capitulo: 'Estudios y pacientes',
+      resumen: 'Los estudios y quiénes participan en cada uno.',
       /* El póster va acá: la pantalla ya cargó. En el primer paso, a 0,8 s, todavía estaba en blanco. */
       poster: true,
     },
@@ -49,6 +51,7 @@ export default guion('conocer-farmacia', {
         await e.moverA(e.page.getByRole('main').getByText(/Bufomix/).first())
       },
       capitulo: 'Recepción',
+      resumen: 'Lo que entra: cada envío de medicación que llega al centro.',
     },
     {
       dice: 'Stock es lo que hay. Tiene tres partes: la medicación de los estudios, la farmacia ambulatoria y el catálogo de todos los medicamentos.',
@@ -57,6 +60,7 @@ export default guion('conocer-farmacia', {
         await e.moverA(e.page.getByRole('button', { name: /Farmacia Protocolo/ }))
       },
       capitulo: 'Stock',
+      resumen: 'Lo que hay: cada medicamento con su lote, su vencimiento y sus unidades.',
     },
     {
       dice: 'Adentro ves cada medicamento con su lote, cuándo vence y cuántas unidades quedan.',
@@ -73,6 +77,7 @@ export default guion('conocer-farmacia', {
         await e.moverA(e.page.getByText('Solicitadas', { exact: true }).first())
       },
       capitulo: 'Dispensaciones',
+      resumen: 'Lo que sale: cada pedido pasa por Solicitadas, Preparando, Listas y Entregadas.',
     },
     {
       dice: 'Cómo se prepara y se entrega un pedido lo explica el tutorial «Dispensar una medicación».',
@@ -85,6 +90,7 @@ export default guion('conocer-farmacia', {
         await e.moverA(e.page.getByRole('button', { name: /abrir la reposición del estudio/ }).first())
       },
       capitulo: 'Reposición',
+      resumen: 'El pedido de medicación de cada estudio, con lo que Spira calcula que hace falta.',
     },
     {
       dice: 'Y en Estadísticas están los números del período, por estudio y por medicamento. Desde cada parte se imprime su reporte.',
@@ -93,6 +99,7 @@ export default guion('conocer-farmacia', {
         await e.moverA(e.page.getByRole('heading', { level: 2, name: 'Resumen del período' }))
       },
       capitulo: 'Estadísticas',
+      resumen: 'Los números del período, por estudio y por medicamento.',
     },
     {
       dice: 'Si una pantalla tiene un tutorial, al lado del título vas a ver el botón «Cómo se hace».',

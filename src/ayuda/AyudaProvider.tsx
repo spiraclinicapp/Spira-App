@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { MODULES } from '../modules/registry'
 import { baseDeTutoriales, publicados, visiblesPara } from './catalogo'
 import type { Meta, Publicado } from './catalogo'
@@ -51,7 +51,7 @@ export interface EstadoReproductor { id: string; segundo: number }
 /** Lo que el panel recuerda entre una apertura y otra, dentro de la sesión (plan: pestaña y alcance; la búsqueda no). */
 export interface MemoriaPanel { pestaña: PestañaAyuda; todos: boolean | null }
 
-export function useEstadoAyuda(isAllowed: (moduleKey: string) => boolean, supabaseUrl: string) {
+export function useEstadoAyuda(isAllowed: (moduleKey: string) => boolean, supabaseUrl: string, uid: string | null) {
   /* Depende de QUÉ módulos tiene la persona y no de la identidad de `isAllowed`: en AppShell es una función
      nueva en cada redibujo, y con ella la lista (y el contexto entero) cambiaría en cada render del shell. */
   const permitidos = MODULES.map((m) => m.key).filter(isAllowed).join(',')
@@ -60,14 +60,23 @@ export function useEstadoAyuda(isAllowed: (moduleKey: string) => boolean, supaba
     [permitidos],
   )
   const base = useMemo(() => baseDeTutoriales(supabaseUrl), [supabaseUrl])
-  const [vistos, setVistos] = useState<ReadonlySet<string>>(() => leerVistos())
+  /* Por usuario (`visto.ts`): si en la misma pestaña entra otra persona, se relee lo suyo. */
+  const [vistos, setVistos] = useState<ReadonlySet<string>>(() => leerVistos(uid))
+  useEffect(() => { setVistos(leerVistos(uid)) }, [uid])
   const [panel, setPanel] = useState<EstadoPanel | null>(null)
   const [reproductor, setReproductor] = useState<EstadoReproductor | null>(null)
   const memoria = useRef<MemoriaPanel>({ pestaña: 'preguntas', todos: null })
 
+  /* Se suma a lo que hay en memoria y no se reemplaza por lo guardado: sin almacenamiento (o sin usuario), lo
+     guardado está vacío y reemplazar borraba lo visto antes en esta misma pestaña. Guardar es idempotente, así que
+     el doble llamado del modo estricto no cambia nada. */
   const marcarVisto = useCallback((id: string) => {
-    setVistos((prev) => (prev.has(id) ? prev : guardarVisto(id)))
-  }, [])
+    setVistos((prev) => {
+      if (prev.has(id)) return prev
+      guardarVisto(id, uid)
+      return new Set([...prev, id])
+    })
+  }, [uid])
   const abrirPanel = useCallback((o: { pestaña?: PestañaAyuda; preguntaId?: string | null } = {}) => {
     // Una pregunta pedida (desde el buscador) se muestra en Preguntas, aunque la última vez quedara en Tutoriales.
     const pestaña = o.preguntaId ? 'preguntas' : o.pestaña ?? memoria.current.pestaña

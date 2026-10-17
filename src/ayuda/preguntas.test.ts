@@ -9,6 +9,8 @@ import { describe, expect, it } from 'vitest'
 import { PREGUNTAS } from './preguntas'
 import { preguntasVisibles } from './reglas'
 import { TUTORIALES } from './tutoriales'
+import type { Meta } from './catalogo'
+import META from './tutoriales.meta.json'
 
 describe('preguntas frecuentes', () => {
   it('hay preguntas de las tres clases', () => {
@@ -41,6 +43,15 @@ describe('preguntas frecuentes', () => {
 
   it('el tutorial que enlaza una respuesta existe en el catálogo (si no, el «Ver cómo se hace» no sale nunca)', () => {
     for (const p of PREGUNTAS) if (p.tutorial) expect(TUTORIALES.some((t) => t.id === p.tutorial), p.id).toBe(true)
+  })
+  it('el capítulo de una respuesta existe en el video publicado de su tutorial (una regrabación puede renombrarlo)', () => {
+    const meta = META as Meta
+    for (const p of PREGUNTAS) {
+      if (!p.capitulo) continue
+      expect(p.tutorial, `${p.id}: «capitulo» sin «tutorial»`).toBeTruthy()
+      const m = meta[p.tutorial!]
+      if (m) expect(m.capitulos.map((c) => c.titulo), p.id).toContain(p.capitulo)
+    }
   })
   it('los rótulos de botones van entre comillas latinas, no rectas', () => {
     for (const p of PREGUNTAS) expect(p.respuesta, p.id).not.toMatch(/"/)

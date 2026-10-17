@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from 'vitest'
 import { armarVtt, tiempoVtt } from './vtt'
-import { armarCapitulos, armarTramos, esperaRestante, PAUSA_MS } from './lineaDeTiempo'
+import { armarCapitulos, armarTramos, esperaRestante, PAUSA_MS, problemasDeCapitulos } from './lineaDeTiempo'
 import { duracionWavMs } from './wav'
 
 describe('tiempoVtt', () => {
@@ -54,13 +54,41 @@ describe('línea de tiempo', () => {
   })
   it('el tramo termina cuando termina de sonar, y los capítulos salen de los pasos que los declaran', () => {
     const tramos = armarTramos([
-      { inicioMs: 0, audioMs: 2000, accionMs: 500, texto: 'a', capitulo: 'Entrar' },
+      { inicioMs: 0, audioMs: 2000, accionMs: 500, texto: 'a', capitulo: 'Entrar', resumen: ' Entrá a la pantalla. ' },
       { inicioMs: 2450, audioMs: 1000, accionMs: 3000, texto: 'b' },
       { inicioMs: 5450, audioMs: 0, accionMs: 100, texto: '' },
     ])
     expect(tramos.map((t) => [t.inicioMs, t.finMs])).toEqual([[0, 2000], [2450, 3450], [5450, 5451]])
-    expect(armarCapitulos(tramos)).toEqual([{ inicioMs: 0, titulo: 'Entrar' }])
+    expect(armarCapitulos(tramos)).toEqual([{ inicioMs: 0, titulo: 'Entrar', texto: 'Entrá a la pantalla.' }])
     expect(() => armarVtt(tramos)).not.toThrow()
+  })
+  it('un capítulo sin resumen frena la grabación en vez de escribir un meta a medias', () => {
+    const tramos = armarTramos([{ inicioMs: 0, audioMs: 1000, accionMs: 0, texto: 'a', capitulo: 'Entrar', resumen: '  ' }])
+    expect(() => armarCapitulos(tramos)).toThrow(/«Entrar» no tiene resumen/)
+  })
+})
+
+describe('problemasDeCapitulos (lo chequea guion() al cargar)', () => {
+  it('un guion bien armado no tiene problemas, y uno sin capítulos tampoco', () => {
+    expect(problemasDeCapitulos([
+      { capitulo: 'A', resumen: 'a' },
+      {},
+      { capitulo: 'B', resumen: 'b' },
+    ])).toEqual([])
+    expect(problemasDeCapitulos([{}, {}])).toEqual([])
+  })
+  it('nombra cada problema: sin resumen, resumen suelto, repetido y primer paso sin capítulo', () => {
+    expect(problemasDeCapitulos([
+      {},
+      { capitulo: 'A' },
+      { resumen: 'huérfano' },
+      { capitulo: 'A', resumen: 'otra vez' },
+    ])).toEqual([
+      'el paso 2 abre el capítulo «A» sin resumen',
+      'el paso 3 tiene resumen pero no abre ningún capítulo',
+      'el capítulo «A» está repetido (paso 4)',
+      'el primer paso no abre un capítulo',
+    ])
   })
 })
 

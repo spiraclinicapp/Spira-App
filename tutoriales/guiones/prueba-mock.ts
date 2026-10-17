@@ -15,6 +15,7 @@ export default guion('prueba-mock', {
       dice: 'Esta es una prueba de la fábrica de tutoriales de Spira.',
       hace: async (e) => { await e.irA(MOCK) },
       capitulo: 'Inicio',
+      resumen: 'Una prueba de la fábrica: no es un tutorial.',
     },
     {
       dice: 'El panel de Ayuda arranca con las preguntas frecuentes.',
@@ -25,6 +26,7 @@ export default guion('prueba-mock', {
       dice: 'Escribí en el buscador, sin preocuparte por las tildes.',
       hace: async (e) => { await e.escribir(e.page.getByLabel('Buscar en la Ayuda'), 'recepcion') },
       capitulo: 'Buscar',
+      resumen: 'Una prueba de la fábrica: no es un tutorial.',
     },
     {
       dice: 'Y pasá a la pestaña de tutoriales.',

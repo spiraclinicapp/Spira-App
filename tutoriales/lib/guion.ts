@@ -1,6 +1,7 @@
 import { expect } from '@playwright/test'
 import type { Locator, Page } from '@playwright/test'
 import type { Cuenta } from './sesion'
+import { problemasDeCapitulos } from './lineaDeTiempo'
 
 /* ============================================================================
    El guion: la fuente única de un tutorial (docs/plan-tutoriales.md, «El guion»). Del mismo arreglo de pasos
@@ -17,6 +18,11 @@ export interface Paso {
   hace?: (e: Escena) => Promise<void>
   /** Si está, este paso abre un capítulo del reproductor con ese título. */
   capitulo?: string
+  /** Obligatorio con `capitulo`: el texto corto del capítulo, que se lee en la Ayuda y en el manual al lado de la
+   *  marca de tiempo. Una o dos oraciones con lo que se hace, no lo que dice la voz palabra por palabra (eso ya va
+   *  en la transcripción): en el panel de 440 px, la voz entera convertía la lista de capítulos en la transcripción
+   *  (docs/plan-ayuda-manual.md, A1). Va acá, al lado del `dice`, para que quien cambie la voz lo tenga a la vista. */
+  resumen?: string
   /** El cuadro de este paso es el póster del video (si ninguno lo marca, se usa el del primer paso). Se toma
    *  al FINAL del paso (`grabar.ts`), con la acción hecha y la pantalla quieta. Hasta el 2026-10-15 se tomaba a
    *  0,8 s del inicio, y eso dio tres pósters malos: en blanco (un paso que navega, «Conocé Farmacia»), con
@@ -42,6 +48,8 @@ export interface Guion {
 export function guion(id: string, def: Omit<Guion, 'id'>): Guion {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(id)) throw new Error(`Id de guion inválido: «${id}»`)
   if (def.pasos.length === 0) throw new Error(`El guion «${id}» no tiene pasos`)
+  const problemas = problemasDeCapitulos(def.pasos)
+  if (problemas.length > 0) throw new Error(`El guion «${id}» tiene capítulos mal armados: ${problemas.join('; ')}`)
   return { id, ...def }
 }
 

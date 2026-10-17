@@ -33,6 +33,7 @@ export default guion('nueva-dispensacion', {
       dice: 'Si un paciente necesita medicación y Coordinación no la pidió, la dispensación la podés cargar vos.',
       hace: async (e) => { await e.irA('/farmacia/dispensaciones') },
       capitulo: 'Nueva dispensación',
+      resumen: 'Pulsá el botón «Nueva dispensación» y elegí «De protocolo».',
     },
     {
       dice: 'En Dispensaciones, pulsá el botón «Nueva dispensación», arriba a la derecha.',
@@ -50,6 +51,7 @@ export default guion('nueva-dispensacion', {
       dice: 'Elegí al paciente de la lista.',
       hace: async (e) => { await elegir(e, cajon(e).getByRole('button', { name: 'Paciente', exact: true }), 'Graciela') },
       capitulo: 'Paciente y visita',
+      resumen: 'Elegí al paciente y la visita. Si vino sin turno, pulsá el botón «Registrar una visita no programada de hoy».',
     },
     {
       dice: 'Después, la visita en la que se entrega. Si vino sin turno, pulsá el botón «Registrar una visita no programada de hoy»: queda elegida.',
@@ -68,6 +70,7 @@ export default guion('nueva-dispensacion', {
         await e.clic(cajon(e).getByRole('button', { name: 'Agregar', exact: true }))
       },
       capitulo: 'Medicación',
+      resumen: 'Elegí el medicamento, poné la cantidad y pulsá el botón «Agregar».',
     },
     {
       dice: 'Pulsá el botón «Crear y preparar». La dispensación pasa directo a Preparando, sin esperar en Solicitadas.',
@@ -76,6 +79,7 @@ export default guion('nueva-dispensacion', {
         await e.page.getByLabel('Código de barras').waitFor({ timeout: 15_000 })
       },
       capitulo: 'Crear y preparar',
+      resumen: 'Pulsá el botón «Crear y preparar»: pasa directo a Preparando y se sigue como cualquier pedido.',
     },
     {
       dice: 'Desde acá se sigue igual que un pedido de Coordinación: escaneás cada unidad, la marcás lista para retirar y la entregás.',
