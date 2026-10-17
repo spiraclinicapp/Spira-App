@@ -76,7 +76,7 @@ script de la prueba real la escribió consistente con el cronograma (`:728-730`)
 
 | Subproblema | Qué ya existe | Se reusa |
 |---|---|---|
-| Separar «a mano» de «cambió la definición» | Nada: falta el dato. La ventana lo dice a medias (D6) | La ventana, para las filas de antes de la 0162 |
+| Separar «a mano» de «cambió la definición» | Nada: falta el dato. La ventana lo dice a medias (D6) | La ventana, para las filas de antes de la 0163 |
 | No pisar una fecha | La rama del turno cancelado de la 0161 (`case … else`) | Se generaliza: «no se mueve» pasa a ser una clase de fila |
 | Mover la ventana igual | El MOVER de la 0161 ya separa fecha y ventana | Tal cual |
 | Mostrar nombre y visita sin pasar por encima de la RLS | `v_track_visits` (`security_invoker`) | Se piden por `id` |
@@ -86,7 +86,7 @@ script de la prueba real la escribió consistente con el cronograma (`:728-730`)
 **Mínimo que cumple el pedido:** una columna, dos funciones re-declaradas (`generate_patient_visits` y
 `sync_protocol_schedule`), una de lectura nueva que clasifica, y el modal. **Ningún escritor de fechas cambia y la
 migración no escribe ningún dato.**
-**Archivos:** la 0162, `casos-0162.mjs`, `supabase/README.md`, `data/visitDefinitions.ts`, `ScheduleSyncModal.tsx`,
+**Archivos:** la 0163, `casos-0163.mjs`, `supabase/README.md`, `data/visitDefinitions.ts`, `ScheduleSyncModal.tsx`,
 un archivo de reglas puras con su test y `TODOS.md`. Siete, sin clases ni servicios nuevos: no dispara el chequeo de
 complejidad.
 **Búsqueda:** sin búsqueda web (es lógica de dominio). El patrón es de manual: guardar el valor derivado que se
@@ -145,14 +145,14 @@ una cancelada no tiene marcas y un «No vino» no se cancela, así que no hay es
 
 **D5 · Quién escribe la columna: sólo los dos que dan la fecha del cronograma.**
 - `generate_patient_visits` re-declarada (la de la `0029:47-64` tal cual + la columna en el `INSERT`). Cubre el caso que
-  D6 no: una visita randomizada después de la 0162, reprogramada, y una definición que cambia el tamaño de su ventana
+  D6 no: una visita randomizada después de la 0163, reprogramada, y una definición que cambia el tamaño de su ventana
   antes del primer sync. Si alguna vez se re-declarara sin la columna, la visita cae en D6 y se deduce bien: la falla
   es benigna.
 - `sync_protocol_schedule`: el `INSERT` y el `UPDATE`.
 - **Sin trigger.** Un `BEFORE INSERT` que la copiara de `estimated_date` cuando hay ventana también andaría, pero
   descansa en que «tiene ventana» quiere decir «lo generó el cronograma». Explícito sobre ingenioso.
 
-**D6 · Las filas de antes de la 0162: la ventana, leída al clasificar, sin relleno.** Ningún camino a mano toca la
+**D6 · Las filas de antes de la 0163: la ventana, leída al clasificar, sin relleno.** Ningún camino a mano toca la
 ventana, así que la ventana guarda la fecha teórica de la última vez que el cronograma escribió: `window_start +
 window_minus`, si da lo mismo que `window_end - window_plus` (o sea, si el tamaño de la ventana no cambió desde
 entonces). Mientras la columna esté vacía, la clasificación usa eso:
@@ -271,7 +271,7 @@ ve antes en el preview.
 - «Ya está al día» no cambia; si hay fechas conservadas, la línea «conservan…» va debajo, para que se sepa que no es
   un olvido.
 
-## La migración 0162 · `sync_respeta_fechas_a_mano.sql`
+## La migración 0163 · `sync_respeta_fechas_a_mano.sql`
 
 Aditiva, sin datos. **Va PRIMERO, antes del front.** En orden de dependencias, cada sentencia idempotente (el editor no
 tiene una transacción que abarque el archivo):
@@ -291,7 +291,7 @@ choquen con columnas (calificar siempre, 0056/0058); el `select … into` del sy
 del editor: **se corre sin activarla** (quinta trampa de `CLAUDE.md`).
 
 **Cómo se le pasa al Director:** la copia sin comentarios (`node scripts/sql-sin-comentarios.mjs
-supabase/migrations/0162_sync_respeta_fechas_a_mano.sql <salida>`), probada en el banco **aplicando esa copia**, con
+supabase/migrations/0163_sync_respeta_fechas_a_mano.sql <salida>`), probada en el banco **aplicando esa copia**, con
 la sonda en el mismo mensaje (decisión 101):
 
 ```sql
@@ -367,12 +367,12 @@ definición pendiente (ahí es donde D6 deduce la fecha vieja).
   programada huérfana no existe. *(Segunda opinión, punto 1.)*
 
 **3 · Tests.** Framework: `vitest` (`npm run test`, dentro de `npm run build`) para lo puro; el banco PGlite
-(`scripts/banco-rls/casos-0162.mjs`, molde `casos-0161.mjs`, fijado a la 0162: `crearBase({ hasta: 161 })`, foto,
-aplicar la 0162 encima) para la base.
+(`scripts/banco-rls/casos-0163.mjs`, molde `casos-0161.mjs`, fijado a la 0163: `crearBase({ hasta: 161 })`, foto,
+aplicar la 0163 encima) para la base.
 
 ```
 CÓDIGO                                                    FLUJOS
-[+] 0162 sobre los datos de antes                         [+] El admin sincroniza
+[+] 0163 sobre los datos de antes                         [+] El admin sincroniza
   ├ [GAP→banco] entra sin escribir ninguna fila             ├ [GAP→banco] sólo crear: las reprogramadas
   │    (audit_log igual) y la sonda da todo true            │    no se tocan y el preview las cuenta
   └ [GAP→banco] correrla dos veces: igual                   ├ [GAP→banco] cambió el offset: las del
@@ -401,7 +401,7 @@ CÓDIGO                                                    FLUJOS
   │    aplicar otra cosa, y no se cuenta                  [+] Permisos (regresión)
   ├ [GAP→banco] cancelada: sigue NULL (regresión 0161)      ├ [GAP→banco] coordinadora sin admin → 42501
   ├ [GAP→banco] sin randomización: no revienta (0161)       ├ [GAP→banco] gerencia y track admin → corre
-  └ [GAP→banco] creates/deletes/attended_divergent igual    └ [GAP→banco] equivalencia 0162 --control
+  └ [GAP→banco] creates/deletes/attended_divergent igual    └ [GAP→banco] equivalencia 0163 --control
 [+] views/track/sincronizar.ts · lineasDelPlan                   sin diferencias de permisos
   ├ [GAP→test] plan vacío → «ya está al día»              [+] El modal
   ├ [GAP→test] respuesta sin `fechas` → las líneas de hoy   ├ [GAP→QA] con sesión, TEST-QA: el preview
@@ -416,7 +416,7 @@ NO TESTEABLE EN EL BANCO: el bloqueo contra una sesión concurrente (PGlite es u
 
 - `casos-0161` queda fijado a la 0161 y tiene que seguir 52/52; `casos-0158/0159/0160`, igual.
 - `sembrar.mjs` llena columnas con valores al azar; `fecha_del_cronograma` al azar no rompe nada (no tiene CHECK), y los
-  casos de la 0162 arman sus propias filas.
+  casos de la 0163 arman sus propias filas.
 
 **4 · Rendimiento.** El sync corre por estudio, sobre cientos de visitas: una función `sql stable` que se lee dos
 veces (preview y `UPDATE`) en vez de cinco subconsultas, y un bloqueo de esas mismas filas sólo al aplicar. La
@@ -445,7 +445,7 @@ puntos; ocho tomados, dos tomados a medias, dos descartados:
 
 **CROSS-MODEL TENSION** (dos, decididas con la recomendada):
 - **`generate_patient_visits` (punto 4).** La segunda opinión la sacaría: con la deducción alcanza. Se queda, porque
-  cubre el caso que la deducción no ve (una randomizada después de la 0162, reprogramada, y un cambio de tamaño de
+  cubre el caso que la deducción no ve (una randomizada después de la 0163, reprogramada, y un cambio de tamaño de
   ventana antes del primer sync: se pisaría en silencio), y su propia falla cae en la deducción, que es benigna. Cuesta
   re-declarar veinte renglones.
 - **Los conteos que se repiten (punto 6).** La segunda opinión contaría sólo lo que este sync cambia. Se quedan los dos
@@ -465,12 +465,12 @@ puntos; ocho tomados, dos tomados a medias, dos descartados:
 | sync | una visita atendida mientras corre | — (una conexión) | el bloqueo previo | **sí, cubierta por diseño, leída** |
 | sync | una marcada queda «a mano» al desmarcarse | banco | — | **sí, cubierta** |
 | sync | se pierde la rama del turno cancelado | banco (regresión 0161) | — | **sí, cubierta** |
-| 0162 aplicada | copia comentada o cortada en el editor (0160, 0161) | — | copia sin comentarios + sonda + API sin sesión | no, si se corren |
+| 0163 aplicada | copia comentada o cortada en el editor (0160, 0161) | — | copia sin comentarios + sonda + API sin sesión | no, si se corren |
 | front | desplegado antes que la migración | vitest (respuesta sin `fechas`) | las líneas de hoy | no |
 | modal | un admin sin acceso a esas visitas | QA | queda el número, sin nombres | no |
-| prod, hoy | alguien sincroniza un estudio de la prueba real antes de la 0162 | — | el aviso de arriba | **sí: depende de que se lea** |
+| prod, hoy | alguien sincroniza un estudio de la prueba real antes de la 0163 | — | el aviso de arriba | **sí: depende de que se lea** |
 
-Una brecha crítica que no es del código: la última fila. Se cierra con la 0162; hasta entonces, el aviso.
+Una brecha crítica que no es del código: la última fila. Se cierra con la 0163; hasta entonces, el aviso.
 
 ## NOT in scope
 
@@ -534,19 +534,19 @@ separable (`lineasDelPlan` y su test) son minutos.
 
 ## Implementation Tasks
 
-- [ ] **T1 (P1, humano ~5 h / CC ~30 min)** — base — `0162_sync_respeta_fechas_a_mano.sql` (columna,
-  `generate_patient_visits`, `cronograma_por_sincronizar`, `sync_protocol_schedule`) + `scripts/banco-rls/casos-0162.mjs`
-  + `equivalencia.mjs 0162 --control` + `casos-0158/0159/0160/0161` en verde + fila del índice en `supabase/README.md`
+- [ ] **T1 (P1, humano ~5 h / CC ~30 min)** — base — `0163_sync_respeta_fechas_a_mano.sql` (columna,
+  `generate_patient_visits`, `cronograma_por_sincronizar`, `sync_protocol_schedule`) + `scripts/banco-rls/casos-0163.mjs`
+  + `equivalencia.mjs 0163 --control` + `casos-0158/0159/0160/0161` en verde + fila del índice en `supabase/README.md`
   (sin «Aplicada» hasta la sonda y la API)
   - Surgió de: D1–D10; Revisión 2 (DRY); Revisión 3 (todo el banco); segunda opinión 2, 4, 8, 12
-  - Verificar: `node scripts/banco-rls/casos-0162.mjs` aplicando **la copia sin comentarios**; dollar-quotes en par;
+  - Verificar: `node scripts/banco-rls/casos-0163.mjs` aplicando **la copia sin comentarios**; dollar-quotes en par;
     `node scripts/check-migraciones.mjs`
 - [ ] **T2 (P1, humano ~2 h / CC ~15 min)** — front — `SchedulePlan` con las claves nuevas (`data/visitDefinitions.ts`);
   `lineasDelPlan` en `views/track/sincronizar.ts` + `sincronizar.test.ts`; `ScheduleSyncModal` con las líneas, el aviso
   de fuera de ventana (nombres por `v_track_visits`, sin recalcular) y la respuesta vieja
   - Surgió de: D8, D9; «Cómo sale en el preview»; Revisión 3 (vitest); segunda opinión 5
   - Verificar: `npm run build` verde
-- [ ] **T3 (P1)** — verificación — la 0162 aplicada con su sonda en verde y la API sin sesión; QA con sesión del preview
+- [ ] **T3 (P1)** — verificación — la 0163 aplicada con su sonda en verde y la API sin sesión; QA con sesión del preview
   del sync (`p_apply = false`) sobre TEST-QA con una visita reprogramada, y en un estudio real **sólo el preview**
   - Verificar: el modal muestra «conservan la fecha que se les dio a mano»; nada se escribe en estudios reales
 - [ ] **T4 (P3)** — docs — `TODOS.md`: cerrar «sincronizar deshace los «Reprogramar»»; este plan con sus casillas
@@ -557,13 +557,13 @@ separable (`lineasDelPlan` y su test) son minutos.
 |--------|---------|-----|------|--------|----------|
 | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
 | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 10 decisiones técnicas auto-decididas; 6 hallazgos propios (DRY, concurrencia, D4 de paso, modal puro, sonda, aviso de prod); 12 de la segunda opinión, 8 tomados, 2 a medias, 2 descartados; 0 critical gaps de código (1 operativa: no sincronizar la prueba real hasta la 0162); 5 preguntas de producto abiertas, con la recomendada |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 10 decisiones técnicas auto-decididas; 6 hallazgos propios (DRY, concurrencia, D4 de paso, modal puro, sonda, aviso de prod); 12 de la segunda opinión, 8 tomados, 2 a medias, 2 descartados; 0 critical gaps de código (1 operativa: no sincronizar la prueba real hasta la 0163); 5 preguntas de producto abiertas, con la recomendada |
 | Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
 | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
 - **CROSS-MODEL:** segunda opinión de un subagente Claude (Codex no está instalado). Dos tensiones (`generate` y los
   conteos que se repiten), decididas con la recomendada y anotadas; la segunda queda a la vista en P5.
-- **VERDICT:** ENG CLEARED — listo para implementar cuando el Director conteste P1–P5. Orden: 0162 en prod con su sonda
+- **VERDICT:** ENG CLEARED — listo para implementar cuando el Director conteste P1–P5. Orden: 0163 en prod con su sonda
   en verde y la API, después el front.
 
 **UNRESOLVED DECISIONS:**
